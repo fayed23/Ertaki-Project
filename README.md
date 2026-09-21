@@ -2,18 +2,16 @@
 
 Arabic-first app for the **ارتق** program: **Flutter** (Android + iOS students/teachers) + **Next.js** supervisor admin + **NestJS** API + **SQLite** (default) or **PostgreSQL**.
 
-Preferred Windows clone path: `D:\workStuff\Ertaki-Project`
-
-```bat
-git clone https://github.com/fayed23/Ertaki-Project.git "D:\workStuff\Ertaki-Project"
-cd /d "D:\workStuff\Ertaki-Project"
+```bash
+git clone https://github.com/fayed23/Ertaki-Project.git
+cd Ertaki-Project
 ```
 
 Full product requirements: [`requirements.md`](./requirements.md)
 
 ---
 
-## Prerequisites (PC)
+## Prerequisites
 
 | Tool | Notes |
 |---|---|
@@ -45,14 +43,6 @@ npm install
 npm run start:dev
 ```
 
-Windows (cmd):
-
-```bat
-cd /d "D:\workStuff\Ertaki-Project\api"
-npm install
-npm run start:dev
-```
-
 ### Environment variables (API)
 
 | Variable | Default | Purpose |
@@ -79,16 +69,8 @@ npm run start:dev
 ```bash
 cd admin
 npm install
-set NEXT_PUBLIC_API_URL=http://127.0.0.1:43124/api
-npm run dev
-```
-
-Windows (cmd):
-
-```bat
-cd /d "D:\workStuff\Ertaki-Project\admin"
-npm install
-set NEXT_PUBLIC_API_URL=http://127.0.0.1:43124/api
+# Windows cmd: set NEXT_PUBLIC_API_URL=http://127.0.0.1:43124/api
+export NEXT_PUBLIC_API_URL=http://127.0.0.1:43124/api
 npm run dev
 ```
 
@@ -117,10 +99,7 @@ flutter run -d chrome --web-hostname=0.0.0.0 --web-port=43125 --dart-define=API_
 flutter run -d windows --dart-define=API_BASE=http://127.0.0.1:43124/api
 ```
 
-**Student seed:** `0500000003` / `password123`  
-**Teacher seed:** `0500000002` / `password123`
-
-Student tabs: home · my group · daily report · progress.
+Demo query params on Flutter web: `?phone=0500000003&auto=1` (student) or `?phone=0500000002&auto=1` (teacher).
 
 ---
 
@@ -129,19 +108,9 @@ Student tabs: home · my group · daily report · progress.
 ```bash
 docker compose up -d
 cd api
-# Linux/macOS
 export DB_TYPE=postgres
 export DATABASE_URL=postgres://ertaki:ertaki@localhost:5432/ertaki
 export TYPEORM_SYNC=true
-npm run start:dev
-```
-
-Windows (cmd):
-
-```bat
-set DB_TYPE=postgres
-set DATABASE_URL=postgres://ertaki:ertaki@localhost:5432/ertaki
-set TYPEORM_SYNC=true
 npm run start:dev
 ```
 
