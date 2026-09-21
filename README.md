@@ -4,9 +4,11 @@
 
 ## المسار المحلي المفضّل (Windows)
 
+`D:\workStuff\Ertaki-Project`
+
 ```bat
-git clone <remote-url> "D:\work stuff\Ertaki-Project"
-cd /d "D:\work stuff\Ertaki-Project"
+git clone <remote-url> "D:\workStuff\Ertaki-Project"
+cd /d "D:\workStuff\Ertaki-Project"
 ```
 
 التطوير السحابي يعتمد على الـ git remote ولا يحتاج وصولاً لقرص Windows.
