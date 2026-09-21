@@ -1,0 +1,15 @@
+node_modules
+.next
+dist
+*.sqlite
+*.sqlite-*
+.DS_Store
+.idea
+.vscode
+coverage
+.env
+.env.local
+mobile/.dart_tool
+mobile/build
+mobile/.flutter-plugins-dependencies
+api/ertaki.dev.sqlite

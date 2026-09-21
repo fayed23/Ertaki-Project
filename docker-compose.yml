@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ertaki
+      POSTGRES_PASSWORD: ertaki
+      POSTGRES_DB: ertaki
+    ports:
+      - "5432:5432"
+    volumes:
+      - ertaki_pg:/var/lib/postgresql/data
+
+volumes:
+  ertaki_pg:
