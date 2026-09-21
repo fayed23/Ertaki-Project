@@ -1,29 +1,43 @@
-# ارتق (Ertaki)
+# ارتق (Ertaki) — Quran memorization tracking
 
-تطبيق متابعة حفظ القرآن الكريم — جوال (Flutter) + لوحة مشرف (Next.js) + API (NestJS) + PostgreSQL/SQLite.
+Arabic-first app for the **ارتق** program: **Flutter** (Android + iOS students/teachers) + **Next.js** supervisor admin + **NestJS** API + **SQLite** (default) or **PostgreSQL**.
 
-## المسار المحلي المفضّل (Windows)
-
-`D:\workStuff\Ertaki-Project`
+Preferred Windows clone path: `D:\workStuff\Ertaki-Project`
 
 ```bat
-git clone <remote-url> "D:\workStuff\Ertaki-Project"
+git clone https://github.com/fayed23/Ertaki-Project.git "D:\workStuff\Ertaki-Project"
 cd /d "D:\workStuff\Ertaki-Project"
 ```
 
-التطوير السحابي يعتمد على الـ git remote ولا يحتاج وصولاً لقرص Windows.
+Full product requirements: [`requirements.md`](./requirements.md)
 
-## المتطلبات
+---
 
-- Node.js 20+
-- Flutter 3.27+ (للجوال)
-- اختياري: Docker لتشغيل PostgreSQL
+## Prerequisites (PC)
 
-## التشغيل السريع (تطوير بدون أسرار)
+| Tool | Notes |
+|---|---|
+| **Node.js 20+** | API + admin |
+| **npm** | comes with Node |
+| **Flutter 3.27+** | mobile / optional web preview |
+| **Chrome** (optional) | `flutter run -d chrome` |
+| **Docker** (optional) | PostgreSQL instead of SQLite |
 
-الافتراضي: **SQLite** للـ API — لا حاجة لـ Postgres أو مفاتيح سحابية.
+No cloud API keys are required for local MVP (JWT + SQLite).
 
-### 1) الواجهة الخلفية
+---
+
+## Ports (defaults)
+
+| Service | URL |
+|---|---|
+| API | http://127.0.0.1:43124/api |
+| Admin (supervisor) | http://127.0.0.1:43123 |
+| Flutter web preview (optional) | http://127.0.0.1:43125 |
+
+---
+
+## 1) API (NestJS + SQLite by default)
 
 ```bash
 cd api
@@ -31,29 +45,58 @@ npm install
 npm run start:dev
 ```
 
-API: [http://127.0.0.1:43124/api](http://127.0.0.1:43124/api)
+Windows (cmd):
 
-حسابات البذور (كلمة المرور جميعاً `password123`):
+```bat
+cd /d "D:\workStuff\Ertaki-Project\api"
+npm install
+npm run start:dev
+```
 
-| الدور | الهاتف |
+### Environment variables (API)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `43124` | HTTP port |
+| `DB_TYPE` | `sqlite` | set `postgres` for PostgreSQL |
+| `SQLITE_PATH` | `ertaki.dev.sqlite` | SQLite file path |
+| `DATABASE_URL` | `postgres://ertaki:ertaki@localhost:5432/ertaki` | used when `DB_TYPE=postgres` |
+| `TYPEORM_SYNC` | unset | set `true` to auto-sync schema on Postgres |
+| `JWT_SECRET` | `ertaki-dev-secret-change-me` | change in any shared environment |
+
+### Seed accounts (password for all: `password123`)
+
+| Role | Phone |
 |---|---|
-| مشرف | `0500000001` |
-| معلم | `0500000002` |
-| طالب | `0500000003` |
+| Supervisor | `0500000001` |
+| Teacher | `0500000002` |
+| Student | `0500000003` |
 
-### 2) لوحة المشرف (ويب)
+---
+
+## 2) Supervisor admin (Next.js)
 
 ```bash
 cd admin
 npm install
+set NEXT_PUBLIC_API_URL=http://127.0.0.1:43124/api
 npm run dev
 ```
 
-لوحة المشرف: [http://127.0.0.1:43123](http://127.0.0.1:43123)
+Windows (cmd):
 
-اضبط عند الحاجة: `NEXT_PUBLIC_API_URL=http://127.0.0.1:43124/api`
+```bat
+cd /d "D:\workStuff\Ertaki-Project\admin"
+npm install
+set NEXT_PUBLIC_API_URL=http://127.0.0.1:43124/api
+npm run dev
+```
 
-### 3) تطبيق الجوال
+Open http://127.0.0.1:43123 — login with supervisor `0500000001` / `password123`.
+
+---
+
+## 3) Flutter app (students + teachers)
 
 ```bash
 cd mobile
@@ -61,34 +104,68 @@ flutter pub get
 flutter run --dart-define=API_BASE=http://127.0.0.1:43124/api
 ```
 
-على محاكي Android استخدم غالباً `http://10.0.2.2:43124/api`.
+### Useful variants
 
-## PostgreSQL (اختياري)
+```bash
+# Android emulator (host loopback)
+flutter run --dart-define=API_BASE=http://10.0.2.2:43124/api
+
+# Chrome web preview
+flutter run -d chrome --web-hostname=0.0.0.0 --web-port=43125 --dart-define=API_BASE=http://127.0.0.1:43124/api
+
+# Windows desktop (if Flutter Windows desktop enabled)
+flutter run -d windows --dart-define=API_BASE=http://127.0.0.1:43124/api
+```
+
+**Student seed:** `0500000003` / `password123`  
+**Teacher seed:** `0500000002` / `password123`
+
+Student tabs: home · my group · daily report · progress.
+
+---
+
+## Optional PostgreSQL
 
 ```bash
 docker compose up -d
 cd api
+# Linux/macOS
+export DB_TYPE=postgres
+export DATABASE_URL=postgres://ertaki:ertaki@localhost:5432/ertaki
+export TYPEORM_SYNC=true
+npm run start:dev
+```
+
+Windows (cmd):
+
+```bat
 set DB_TYPE=postgres
 set DATABASE_URL=postgres://ertaki:ertaki@localhost:5432/ertaki
 set TYPEORM_SYNC=true
 npm run start:dev
 ```
 
-## قرارات منتج مقفولة (ملخص)
+---
 
-- التقارير اليومية: معلم/مشرف فقط — الطلبة لا يرون تقارير الزملاء
-- لا تعديل بعد الإرسال
-- لا مواعيد إغلاق/تقصير زمني في MVP (النموذج جاهز لاحقاً)
-- القسط لكل طالب
-- عواقب التقصير من جدول الإعدادات فقط
+## Locked product decisions (MVP)
 
-التفاصيل: مستندات المشروع `docs/mvp-plan.md` و `docs/decisions.md`.
+- Daily reports: **teachers/supervisors only** (students never see peers’ reports)
+- No edit after submit
+- No report deadlines / no missing-by-time infractions yet (config table ready)
+- Daily quota: **per student**
+- Infraction consequences: **admin-configurable only**
 
-## هيكل المستودع
+---
+
+## Repo layout
 
 ```
-api/      NestJS + TypeORM (SQLite/Postgres)
-admin/    Next.js supervisor console (RTL عربي)
-mobile/   Flutter (Android + iOS)
-docker-compose.yml
+api/               NestJS API
+admin/             Next.js supervisor UI (RTL)
+mobile/            Flutter (Android + iOS + web)
+requirements.md    Full Arabic product requirements
+docker-compose.yml Optional Postgres
+README.md          This file
 ```
+
+GitHub: https://github.com/fayed23/Ertaki-Project
