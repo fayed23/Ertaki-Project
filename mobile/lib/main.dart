@@ -267,13 +267,20 @@ class GatePage extends StatefulWidget {
 }
 
 class _GatePageState extends State<GatePage> with SingleTickerProviderStateMixin {
-  final phoneCtrl = TextEditingController(text: '0500000003');
+  late final TextEditingController phoneCtrl;
   final passCtrl = TextEditingController(text: 'password123');
   String? error;
   bool loading = false;
   late final AnimationController _anim =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 700))
         ..forward();
+
+  @override
+  void initState() {
+    super.initState();
+    final q = Uri.base.queryParameters['phone'];
+    phoneCtrl = TextEditingController(text: (q != null && q.isNotEmpty) ? q : '0500000003');
+  }
 
   @override
   void dispose() {
