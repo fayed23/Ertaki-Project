@@ -34,10 +34,33 @@ class ErtakiApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1F6B4A),
+          seedColor: const Color(0xFF0F3D2E),
+          primary: const Color(0xFF176B4D),
+          secondary: const Color(0xFFB8923E),
+          surface: const Color(0xFFF7FAF8),
           brightness: Brightness.light,
         ),
-        fontFamily: 'Roboto',
+        scaffoldBackgroundColor: const Color(0xFFE8F0EB),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF7FAF8),
+          foregroundColor: Color(0xFF0B1A14),
+          elevation: 0,
+          centerTitle: true,
+          titleTextStyle: TextStyle(
+            fontFamily: 'Noto Naskh Arabic',
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F3D2E),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF176B4D),
+            foregroundColor: const Color(0xFFF7FAF8),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
       ),
       home: const Directionality(
         textDirection: TextDirection.rtl,
@@ -136,7 +159,7 @@ class _GatePageState extends State<GatePage> {
           gradient: LinearGradient(
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
-            colors: [Color(0xFFF3EFE6), Color(0xFFD7EBE0)],
+            colors: [Color(0xFFF7FAF8), Color(0xFFE8F0EB), Color(0xFFD3E2DA)],
           ),
         ),
         child: SafeArea(
@@ -152,9 +175,11 @@ class _GatePageState extends State<GatePage> {
                     Text(
                       'ارتق',
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                            color: const Color(0xFF1F6B4A),
+                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                            color: const Color(0xFF0F3D2E),
                             fontWeight: FontWeight.bold,
+                            fontSize: 56,
+                            height: 1.05,
                           ),
                     ),
                     const SizedBox(height: 8),
