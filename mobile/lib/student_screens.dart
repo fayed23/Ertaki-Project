@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
+import 'package:ertaki_mobile/notify.dart';
 import 'package:ertaki_mobile/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -141,11 +142,19 @@ class StudentGroup extends StatefulWidget {
 class _StudentGroupState extends State<StudentGroup> {
   Map<String, dynamic>? membership;
   bool loading = true;
+  final excuseCtrl = TextEditingController();
+  bool sendingExcuse = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    excuseCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -158,6 +167,25 @@ class _StudentGroupState extends State<StudentGroup> {
     } catch (e) {
       setState(() => loading = false);
       if (mounted) showToast(context, e.toString(), error: true);
+    }
+  }
+
+  Future<void> _sendExcuse() async {
+    final group = membership?['group'] as Map<String, dynamic>?;
+    if (group == null || excuseCtrl.text.trim().isEmpty) return;
+    setState(() => sendingExcuse = true);
+    try {
+      await widget.api.post('/excuse-requests', {
+        'groupId': group['id'],
+        'sessionDate': todayIso(),
+        'reason': excuseCtrl.text.trim(),
+      });
+      excuseCtrl.clear();
+      if (mounted) showToast(context, 'تم إرسال طلب العذر للمعلم والمشرف');
+    } catch (e) {
+      if (mounted) showToast(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => sendingExcuse = false);
     }
   }
 
@@ -219,14 +247,36 @@ class _StudentGroupState extends State<StudentGroup> {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        const SectionTitle('طلب عذر غياب'),
+        SoftPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: excuseCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'سبب العذر (مجلس اليوم)',
+                ),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: sendingExcuse ? null : _sendExcuse,
+                child: Text(sendingExcuse ? 'جاري الإرسال…' : 'إرسال العذر'),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 }
 
 class StudentDailyReport extends StatefulWidget {
-  const StudentDailyReport({super.key, required this.api});
+  const StudentDailyReport({super.key, required this.api, this.onSubmitted});
   final ApiClient api;
+  final Future<void> Function()? onSubmitted;
 
   @override
   State<StudentDailyReport> createState() => _StudentDailyReportState();
@@ -273,6 +323,8 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
         'readTafsir': tafsir,
       });
       setState(() => alreadySubmitted = true);
+      await NotifyHub.instance.cancelDeadlineReminder();
+      await widget.onSubmitted?.call();
       if (mounted) showToast(context, 'تم إرسال التقرير — لا يمكن تعديله');
     } catch (e) {
       if (mounted) showToast(context, e.toString(), error: true);
@@ -434,6 +486,7 @@ class _StudentProgressState extends State<StudentProgress> {
   List<dynamic> weekly = [];
   List<dynamic> infractions = [];
   List<dynamic> notes = [];
+  List<dynamic> notifs = [];
   Map<String, dynamic>? quota;
   bool loading = true;
 
@@ -449,12 +502,14 @@ class _StudentProgressState extends State<StudentProgress> {
       final w = await widget.api.get('/weekly-reports') as List<dynamic>;
       final i = await widget.api.get('/infractions') as List<dynamic>;
       final n = await widget.api.get('/notes') as List<dynamic>;
+      final nf = await widget.api.get('/notifications') as List<dynamic>;
       final q = await widget.api.get('/quotas');
       setState(() {
         reports = r;
         weekly = w;
         infractions = i;
         notes = n;
+        notifs = nf;
         quota = q is Map<String, dynamic> ? q : null;
         loading = false;
       });
@@ -481,6 +536,26 @@ class _StudentProgressState extends State<StudentProgress> {
             style: ui(size: 13, color: Brand.muted),
           ),
           const SizedBox(height: 12),
+          const SectionTitle('الإشعارات'),
+          if (notifs.isEmpty)
+            const EmptyState(
+              icon: Icons.notifications_none,
+              title: 'لا إشعارات',
+              subtitle: 'ستظهر هنا تذكيرات الموعد وتنبيهات الغياب',
+            )
+          else
+            ...notifs.take(8).map((n) => SoftPanel(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${n['title']}', style: ui(weight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text('${n['body']}', style: ui(color: Brand.muted)),
+                    ],
+                  ),
+                )),
+          const SizedBox(height: 8),
           SoftPanel(
             child: Column(
               children: [

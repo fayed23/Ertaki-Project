@@ -138,7 +138,7 @@ class _SupervisorHomeState extends State<SupervisorHome> {
                 Text('لوحة الويب أيضاً متاحة', style: ui(size: 15, weight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 Text(
-                  'يمكنك إدارة البرنامج من التطبيق أو من لوحة المشرف على المتصفح بنفس الحساب.',
+                  'يمكنك إدارة البرنامج من التطبيق أو من لوحة المشرف على المتصفح بنفس الحساب. سياسات التقصير تُعدَّل من الويب.',
                   style: ui(size: 13, color: Brand.muted),
                 ),
               ],

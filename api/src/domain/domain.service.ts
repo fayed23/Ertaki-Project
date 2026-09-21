@@ -33,6 +33,7 @@ import { NotificationStub } from '../entities/notification-stub.entity';
 import { ProgramContent } from '../entities/program-content.entity';
 import { ReportDeadlineConfig } from '../entities/report-deadline-config.entity';
 import { AuditLog } from '../entities/audit-log.entity';
+import { PushService } from './push.service';
 
 @Injectable()
 export class DomainService {
@@ -67,6 +68,7 @@ export class DomainService {
     private readonly deadlines: Repository<ReportDeadlineConfig>,
     @InjectRepository(AuditLog)
     private readonly audit: Repository<AuditLog>,
+    private readonly push: PushService,
   ) {}
 
   private async auditLog(
@@ -96,16 +98,47 @@ export class DomainService {
     body: string,
     payload?: Record<string, unknown>,
   ) {
-    await this.notifications.save(
-      this.notifications.create({
-        recipientId,
-        type,
-        title,
-        body,
-        payload: payload ?? null,
-        delivered: false,
-      }),
-    );
+    await this.push.notify(recipientId, type, title, body, payload);
+  }
+
+  /** Teacher of student's active group + all supervisors/admins. */
+  private async notifyStaffAboutStudent(
+    studentId: string,
+    type: string,
+    title: string,
+    body: string,
+    payload?: Record<string, unknown>,
+    skipUserId?: string,
+  ) {
+    const recipients = new Set<string>();
+    const membership = await this.memberships.findOne({
+      where: { userId: studentId, leftAt: IsNull() },
+    });
+    if (membership) {
+      const group = await this.groups.findOne({
+        where: { id: membership.groupId },
+      });
+      if (group?.teacherId) recipients.add(group.teacherId);
+    }
+    const supervisors = await this.users.find({
+      where: [{ role: UserRole.SUPERVISOR }, { role: UserRole.ADMIN }],
+    });
+    for (const s of supervisors) recipients.add(s.id);
+    if (skipUserId) recipients.delete(skipUserId);
+    for (const id of recipients) {
+      await this.notify(id, type, title, body, {
+        studentId,
+        ...(payload ?? {}),
+      });
+    }
+  }
+
+  registerDeviceToken(actor: User, token: string, platform?: string) {
+    return this.push.registerToken(actor.id, token, platform || 'fcm');
+  }
+
+  unregisterDeviceToken(actor: User, token: string) {
+    return this.push.unregisterToken(actor.id, token);
   }
 
   listUsers(actor: User) {
@@ -333,6 +366,13 @@ export class DomainService {
       }),
     );
     await this.evaluateContentInfractions(actor.id, report);
+    await this.notifyStaffAboutStudent(
+      actor.id,
+      'daily_report_submitted',
+      'تقرير يومي جديد',
+      `${actor.firstName} ${actor.lastName} أرسل تقرير ${input.reportDate}`,
+      { reportId: report.id, reportDate: input.reportDate },
+    );
     return report;
   }
 
@@ -655,6 +695,39 @@ export class DomainService {
         'غياب بدون عذر',
       );
     }
+    if (
+      input.status === AttendanceStatus.EXCUSED ||
+      input.status === AttendanceStatus.UNEXCUSED
+    ) {
+      const student = await this.users.findOne({
+        where: { id: input.studentId },
+      });
+      const label =
+        input.status === AttendanceStatus.EXCUSED
+          ? 'غياب بعذر'
+          : 'غياب بلا عذر';
+      await this.notifyStaffAboutStudent(
+        input.studentId,
+        'attendance_absence',
+        label,
+        `${student?.firstName ?? 'طالب'} — ${input.sessionDate}`,
+        {
+          attendanceId: saved.id,
+          sessionDate: input.sessionDate,
+          status: input.status,
+        },
+        actor.id,
+      );
+      if (student) {
+        await this.notify(
+          student.id,
+          'attendance_absence',
+          label,
+          `تم تسجيل ${label} لتاريخ ${input.sessionDate}`,
+          { sessionDate: input.sessionDate, status: input.status },
+        );
+      }
+    }
     await this.auditLog(
       actor.id,
       'attendance.record',
@@ -683,7 +756,7 @@ export class DomainService {
     input: { groupId: string; sessionDate: string; reason: string },
   ) {
     if (actor.role !== UserRole.STUDENT) throw new ForbiddenException();
-    return this.excuses.save(
+    const row = await this.excuses.save(
       this.excuses.create({
         studentId: actor.id,
         groupId: input.groupId,
@@ -692,6 +765,18 @@ export class DomainService {
         status: ExcuseRequestStatus.PENDING,
       }),
     );
+    await this.notifyStaffAboutStudent(
+      actor.id,
+      'excuse_submitted',
+      'طلب عذر غياب',
+      `${actor.firstName} ${actor.lastName}: ${input.reason}`,
+      {
+        excuseId: row.id,
+        sessionDate: input.sessionDate,
+        groupId: input.groupId,
+      },
+    );
+    return row;
   }
 
   async reviewExcuse(actor: User, id: string, approve: boolean) {
@@ -944,6 +1029,7 @@ export class DomainService {
       enabled: boolean;
       timezone: string;
       closeTimeLocal: string;
+      reminderMinutesBefore?: number;
       notes?: string;
     },
   ) {
@@ -955,6 +1041,7 @@ export class DomainService {
         enabled: input.enabled,
         timezone: input.timezone,
         closeTimeLocal: input.closeTimeLocal,
+        reminderMinutesBefore: input.reminderMinutesBefore ?? 60,
         notes: input.notes ?? null,
       });
     } else {
@@ -962,10 +1049,12 @@ export class DomainService {
         enabled: input.enabled,
         timezone: input.timezone,
         closeTimeLocal: input.closeTimeLocal,
+        reminderMinutesBefore:
+          input.reminderMinutesBefore ?? row.reminderMinutesBefore ?? 60,
         notes: input.notes ?? row.notes,
       });
     }
-    // MVP: store only — do not enforce missing-by-deadline behavior.
+    // Reminders fire when enabled; missing-by-deadline auto-infractions stay off.
     return this.deadlines.save(row);
   }
 

@@ -336,6 +336,7 @@ export class DomainController {
       enabled: boolean;
       timezone: string;
       closeTimeLocal: string;
+      reminderMinutesBefore?: number;
       notes?: string;
     },
   ) {
@@ -345,6 +346,22 @@ export class DomainController {
   @Get('notifications')
   myNotifications(@CurrentUser() user: User) {
     return this.domain.myNotifications(user);
+  }
+
+  @Post('device-tokens')
+  registerDevice(
+    @CurrentUser() user: User,
+    @Body() body: { token: string; platform?: string },
+  ) {
+    return this.domain.registerDeviceToken(user, body.token, body.platform);
+  }
+
+  @Post('device-tokens/unregister')
+  unregisterDevice(
+    @CurrentUser() user: User,
+    @Body() body: { token: string },
+  ) {
+    return this.domain.unregisterDeviceToken(user, body.token);
   }
 
   @Get('dashboards/teacher')

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/gate.dart';
+import 'package:ertaki_mobile/notify.dart';
 import 'package:ertaki_mobile/student_screens.dart';
 import 'package:ertaki_mobile/supervisor_screens.dart';
 import 'package:ertaki_mobile/teacher_screens.dart';
@@ -16,7 +17,7 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   late final ApiClient api = ApiClient(widget.token);
   Map<String, dynamic>? me;
   int tab = 0;
@@ -24,16 +25,60 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      NotifyHub.instance.pollAndAlert(api);
+    }
   }
 
   Future<void> _load() async {
     try {
       final user = await api.get('/auth/me') as Map<String, dynamic>;
       setState(() => me = user);
+      await NotifyHub.instance.registerDevice(api);
+      await NotifyHub.instance.pollAndAlert(api);
+      if (user['role'] == 'student') {
+        await _syncStudentReminder();
+      }
     } catch (e) {
       if (mounted) showToast(context, e.toString(), error: true);
     }
+  }
+
+  Future<void> _syncStudentReminder() async {
+    try {
+      final reports = await api.get('/daily-reports') as List<dynamic>;
+      final submitted = reports.any((r) => r['reportDate'] == todayIso());
+      final cfg = await api.get('/report-deadline-config');
+      final list = cfg is List ? cfg : (cfg is Map ? [cfg] : []);
+      final row = list.isNotEmpty ? list.first as Map<String, dynamic> : null;
+      if (submitted || row == null || row['enabled'] != true) {
+        await NotifyHub.instance.cancelDeadlineReminder();
+        return;
+      }
+      final close = '${row['closeTimeLocal'] ?? '23:59'}';
+      final parts = close.split(':');
+      final closeH = int.tryParse(parts[0]) ?? 23;
+      final closeM = int.tryParse(parts.length > 1 ? parts[1] : '59') ?? 59;
+      final before = (row['reminderMinutesBefore'] as num?)?.toInt() ?? 60;
+      var mins = closeH * 60 + closeM - before;
+      if (mins < 0) mins = 0;
+      await NotifyHub.instance.scheduleStudentDeadlineReminder(
+        hour: mins ~/ 60,
+        minute: mins % 60,
+      );
+    } catch (_) {}
   }
 
   Future<void> logout() async {
@@ -64,13 +109,13 @@ class _HomeShellState extends State<HomeShell> {
         SupervisorHome(api: api, me: me!, onGoJoins: () => setState(() => tab = 1)),
         SupervisorJoins(api: api),
         SupervisorGroups(api: api),
-        SupervisorPolicies(api: api),
+        NotificationsPage(api: api),
       ];
       destinations = const [
         NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'الرئيسية'),
         NavigationDestination(icon: Icon(Icons.how_to_reg_outlined), selectedIcon: Icon(Icons.how_to_reg), label: 'طلبات'),
         NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'مجموعات'),
-        NavigationDestination(icon: Icon(Icons.rule_outlined), selectedIcon: Icon(Icons.rule), label: 'سياسات'),
+        NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: 'إشعارات'),
       ];
     } else if (isTeacher) {
       pages = [
@@ -89,7 +134,7 @@ class _HomeShellState extends State<HomeShell> {
       pages = [
         StudentHome(api: api, me: me!, onGoReport: () => setState(() => tab = 2)),
         StudentGroup(api: api),
-        StudentDailyReport(api: api),
+        StudentDailyReport(api: api, onSubmitted: _syncStudentReminder),
         StudentProgress(api: api, me: me!),
       ];
       destinations = const [

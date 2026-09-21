@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/gate.dart';
+import 'package:ertaki_mobile/notify.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotifyHub.instance.init();
   runApp(const ErtakiApp());
 }
 

@@ -122,7 +122,8 @@ npm run start:dev
 
 - Daily reports: **teachers/supervisors only** (students never see peers’ reports)
 - No edit after submit
-- No report deadlines / no missing-by-time infractions yet (config table ready)
+- **Deadline reminders** near midnight for students without a report (configurable); no auto-infraction on miss yet
+- Staff alerts when a report, excuse, or absence is recorded (in-app + FCM when `FCM_SERVER_KEY` is set)
 - Daily quota: **per student**
 - Infraction consequences: **admin-configurable only**
 
@@ -135,7 +136,18 @@ npm run start:dev
 - **Supervisor:** Flutter app (dashboard, join requests, groups, policies) **and** Next.js admin web — same account works on both
 - Typography: Amiri for «ارتق» brand; Cairo for UI body
 
-Still deferred: deadline enforcement, auto-infraction engine, FCM/SMS, quota set UI (API exists; Flutter reads only)
+Still deferred: missing-by-deadline auto-infractions, full Firebase project wiring (optional `FCM_SERVER_KEY`), quota set UI (API exists; Flutter reads only)
+
+### Push notifications
+
+| Event | Recipients |
+|---|---|
+| Near midnight, no daily report | Student |
+| Daily report submitted | Teacher + supervisors |
+| Excuse submitted | Teacher + supervisors |
+| Absence (excused / unexcused) | Teacher + supervisors (+ student) |
+
+Set `FCM_SERVER_KEY` on the API for real device push. Without it, alerts are stored in `/notifications` and shown in the app (local notifications on Android/iOS when the app can schedule/poll).
 
 ---
 

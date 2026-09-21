@@ -170,10 +170,12 @@ export class SeedService implements OnModuleInit {
 
     await this.deadlines.save(
       this.deadlines.create({
-        enabled: false,
+        enabled: true,
         timezone: 'Africa/Algiers',
         closeTimeLocal: '23:59',
-        notes: 'معطّل في MVP — جاهز للتفعيل لاحقاً من لوحة المشرف',
+        reminderMinutesBefore: 60,
+        notes:
+          'تذكير قبل منتصف الليل للطلبة بلا تقرير. لا تُنشأ مخالفات تلقائية عند انتهاء المهلة.',
       }),
     );
 

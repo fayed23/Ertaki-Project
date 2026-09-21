@@ -3,6 +3,7 @@ import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/shell.dart';
 import 'package:ertaki_mobile/widgets.dart';
+import 'package:ertaki_mobile/notify.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class GatePage extends StatefulWidget {
@@ -49,6 +50,9 @@ class _GatePageState extends State<GatePage> {
       final token = res['accessToken'] as String;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('token', token);
+      final authed = ApiClient(token);
+      await NotifyHub.instance.registerDevice(authed);
+      await NotifyHub.instance.pollAndAlert(authed);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => HomeShell(token: token)),

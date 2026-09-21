@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DomainController } from './domain.controller';
 import { DomainService } from './domain.service';
+import { PushService } from './push.service';
+import { ReminderService } from './reminder.service';
 import { User } from '../entities/user.entity';
 import { Group } from '../entities/group.entity';
 import { GroupMembership } from '../entities/group-membership.entity';
@@ -18,6 +20,7 @@ import { NotificationStub } from '../entities/notification-stub.entity';
 import { ProgramContent } from '../entities/program-content.entity';
 import { ReportDeadlineConfig } from '../entities/report-deadline-config.entity';
 import { AuditLog } from '../entities/audit-log.entity';
+import { DeviceToken } from '../entities/device-token.entity';
 
 const entities = [
   User,
@@ -36,13 +39,14 @@ const entities = [
   ProgramContent,
   ReportDeadlineConfig,
   AuditLog,
+  DeviceToken,
 ];
 
 @Module({
   imports: [TypeOrmModule.forFeature(entities)],
   controllers: [DomainController],
-  providers: [DomainService],
-  exports: [DomainService, TypeOrmModule],
+  providers: [DomainService, PushService, ReminderService],
+  exports: [DomainService, PushService, TypeOrmModule],
 })
 export class DomainModule {}
 
