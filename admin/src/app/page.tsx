@@ -282,21 +282,82 @@ export default function AdminHome() {
     );
   }
 
+  const pendingJoins = joins.filter((j) => j.status === "pending");
   const metrics = dashboard
     ? [
+        ["طلبات معلّقة", dashboard.pendingJoins],
+        ["تقارير اليوم", dashboard.reportsToday],
+        ["تقصير مفتوح", dashboard.openInfractions],
+        ["نشطون", dashboard.activeStudents],
         ["الطلبة", dashboard.students],
         ["المعلمون", dashboard.teachers],
         ["المجموعات", dashboard.groups],
-        ["طلبات معلّقة", dashboard.pendingJoins],
-        ["نشطون", dashboard.activeStudents],
-        ["تقصير مفتوح", dashboard.openInfractions],
-        ["تقارير اليوم", dashboard.reportsToday],
       ]
     : [];
 
+  function chip(label: string, tone: "ok" | "warn" | "danger" | "neutral" = "neutral") {
+    const bg =
+      tone === "ok"
+        ? "rgba(42,143,104,0.15)"
+        : tone === "warn"
+          ? "var(--gold-soft)"
+          : tone === "danger"
+            ? "rgba(143,47,47,0.12)"
+            : "var(--mist-deep, #d3e2da)";
+    const color =
+      tone === "ok"
+        ? "var(--forest-mid)"
+        : tone === "warn"
+          ? "var(--gold)"
+          : tone === "danger"
+            ? "var(--danger)"
+            : "var(--ink-soft)";
+    return (
+      <span
+        style={{
+          display: "inline-block",
+          padding: "0.2rem 0.65rem",
+          borderRadius: 8,
+          background: bg,
+          color,
+          fontSize: "0.78rem",
+          fontWeight: 700,
+        }}
+      >
+        {label}
+      </span>
+    );
+  }
+
+  function toast(msg: string) {
+    setError(null);
+    // reuse error banner as success via temporary message without danger style
+    const el = document.getElementById("ertaki-toast");
+    if (el) {
+      el.textContent = msg;
+      el.style.display = "block";
+      window.setTimeout(() => {
+        el.style.display = "none";
+      }, 2500);
+    }
+  }
+
   return (
-    <main style={{ minHeight: "100vh", paddingBlock: "1.5rem 2.5rem" }}>
+    <main style={{ minHeight: "100vh", paddingBlock: "1.25rem 2rem" }}>
       <div className="shell">
+        <div
+          id="ertaki-toast"
+          style={{
+            display: "none",
+            marginBottom: "0.75rem",
+            padding: "0.75rem 1rem",
+            borderRadius: 12,
+            background: "var(--forest)",
+            color: "#f7faf8",
+            fontSize: "0.92rem",
+            fontWeight: 600,
+          }}
+        />
         <header
           className="anim-rise"
           style={{
@@ -305,19 +366,19 @@ export default function AdminHome() {
             alignItems: "flex-end",
             justifyContent: "space-between",
             gap: "1rem",
-            marginBottom: "1.75rem",
-            paddingBottom: "1.25rem",
+            marginBottom: "1.25rem",
+            paddingBottom: "1rem",
             borderBottom: "1px solid var(--line)",
           }}
         >
           <div>
             <p
               className="brand-mark"
-              style={{ fontSize: "clamp(2.4rem, 6vw, 3.4rem)", margin: 0 }}
+              style={{ fontSize: "clamp(2.2rem, 5vw, 3rem)", margin: 0 }}
             >
               ارتق
             </p>
-            <p style={{ margin: "0.45rem 0 0", color: "var(--muted)", fontSize: "1rem" }}>
+            <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.95rem" }}>
               لوحة المشرف · مرحباً {user?.firstName} {user?.lastName}
             </p>
           </div>
@@ -326,11 +387,11 @@ export default function AdminHome() {
           </button>
         </header>
 
-        <nav className="nav-rail anim-rise-delay" style={{ marginBottom: "1.5rem" }}>
+        <nav className="nav-rail anim-rise-delay" style={{ marginBottom: "1.15rem" }}>
           {(
             [
               ["dash", "لوحة المؤشرات"],
-              ["joins", "طلبات الانضمام"],
+              ["joins", `طلبات الانضمام${pendingJoins.length ? ` (${pendingJoins.length})` : ""}`],
               ["groups", "المجموعات"],
               ["policies", "سياسات التقصير"],
             ] as const
@@ -362,56 +423,59 @@ export default function AdminHome() {
 
         {tab === "dash" && dashboard && (
           <section className="anim-rise-delay-2">
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                justifyContent: "space-between",
-                gap: "0.75rem",
-                marginBottom: "1rem",
-              }}
-            >
-              <div>
-                <h2 style={{ margin: 0, fontSize: "1.35rem", color: "var(--ink-soft)" }}>
-                  نظرة اليوم
-                </h2>
-                <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.95rem" }}>
-                  ملخص البرنامج ليوم {dashboard.today}
-                </p>
-              </div>
-              <span
+            {pendingJoins.length > 0 && (
+              <div
+                className="panel"
                 style={{
-                  alignSelf: "center",
-                  color: "var(--gold)",
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.15rem",
+                  padding: "1rem 1.15rem",
+                  marginBottom: "1rem",
+                  borderColor: "var(--gold)",
+                  background: "linear-gradient(135deg, var(--gold-soft), rgba(247,250,248,0.9))",
                 }}
               >
-                بسم الله نبدأ
-              </span>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: "1.15rem" }}>
+                      طلبات انضمام بانتظارك ({pendingJoins.length})
+                    </h2>
+                    <p style={{ margin: "0.3rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
+                      راجعها أولاً قبل بقية المؤشرات
+                    </p>
+                  </div>
+                  <button type="button" className="btn-primary" style={{ boxShadow: "none" }} onClick={() => setTab("joins")}>
+                    فتح الطلبات
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: "0.75rem" }}>
+              <h2 style={{ margin: 0, fontSize: "1.25rem", color: "var(--ink-soft)" }}>
+                نظرة اليوم · {dashboard.today}
+              </h2>
             </div>
 
             <div
               className="panel"
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                gap: "0 1.5rem",
-                padding: "0.35rem 1.4rem 0.5rem",
+                gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                gap: "0 1rem",
+                padding: "0.2rem 1.1rem 0.35rem",
               }}
             >
               {metrics.map(([label, value]) => (
-                <div key={String(label)} className="metric">
-                  <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.88rem" }}>
+                <div key={String(label)} className="metric" style={{ padding: "0.85rem 0" }}>
+                  <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.82rem" }}>
                     {label}
                   </p>
                   <p
                     style={{
-                      margin: "0.35rem 0 0",
-                      fontSize: "2rem",
+                      margin: "0.25rem 0 0",
+                      fontSize: "1.65rem",
                       fontWeight: 700,
                       color: "var(--forest)",
-                      fontFamily: "var(--font-display)",
+                      fontFamily: "var(--font-body)",
                       lineHeight: 1.1,
                     }}
                   >
@@ -423,19 +487,21 @@ export default function AdminHome() {
           </section>
         )}
 
-        {tab === "joins" && (
+          {tab === "joins" && (
           <section className="anim-rise-delay-2">
-            <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.35rem" }}>طلبات الانضمام</h2>
-            <p style={{ margin: "0 0 1rem", color: "var(--muted)" }}>
+            <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.25rem" }}>طلبات الانضمام</h2>
+            <p style={{ margin: "0 0 0.85rem", color: "var(--muted)" }}>
               قبول أو رفض طلبات الطلبة للمجموعات
             </p>
             <div className="panel">
               {joins.length === 0 && (
                 <p className="row-item" style={{ color: "var(--muted)", margin: 0 }}>
-                  لا توجد طلبات حالياً.
+                  لا توجد طلبات حالياً — عندما يرسل طالب طلباً سيظهر هنا.
                 </p>
               )}
-              {joins.map((j) => (
+              {[...joins]
+                .sort((a, b) => Number(a.status !== "pending") - Number(b.status !== "pending"))
+                .map((j) => (
                 <div
                   key={j.id}
                   className="row-item"
@@ -453,22 +519,26 @@ export default function AdminHome() {
                       <span style={{ color: "var(--muted)", fontWeight: 500 }}> ← </span>
                       {j.group.name}
                     </p>
-                    <p style={{ margin: "0.3rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
-                      الحالة: {STATUS_AR[j.status] || j.status}
-                    </p>
+                    <div style={{ marginTop: 6 }}>
+                      {chip(
+                        STATUS_AR[j.status] || j.status,
+                        j.status === "pending" ? "warn" : j.status === "accepted" ? "ok" : "neutral",
+                      )}
+                    </div>
                   </div>
                   {j.status === "pending" && (
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                       <button
                         type="button"
                         className="btn-primary"
-                        style={{ padding: "0.55rem 1rem", boxShadow: "none" }}
+                        style={{ padding: "0.55rem 1rem", boxShadow: "none", minHeight: 44 }}
                         onClick={async () => {
                           await api(`/join-requests/${j.id}`, token, {
                             method: "PATCH",
                             body: JSON.stringify({ accept: true }),
                           });
                           await refresh();
+                          toast("تم قبول الطلب");
                         }}
                       >
                         قبول
@@ -476,12 +546,14 @@ export default function AdminHome() {
                       <button
                         type="button"
                         className="btn-ghost"
+                        style={{ minHeight: 44 }}
                         onClick={async () => {
                           await api(`/join-requests/${j.id}`, token, {
                             method: "PATCH",
                             body: JSON.stringify({ accept: false }),
                           });
                           await refresh();
+                          toast("تم رفض الطلب");
                         }}
                       >
                         رفض
@@ -496,12 +568,19 @@ export default function AdminHome() {
 
         {tab === "groups" && (
           <section className="anim-rise-delay-2">
-            <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.35rem" }}>المجموعات</h2>
-            <p style={{ margin: "0 0 1rem", color: "var(--muted)" }}>
+            <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.25rem" }}>المجموعات</h2>
+            <p style={{ margin: "0 0 0.85rem", color: "var(--muted)" }}>
               مواعيد المجالس وروابط واتساب الخارجية
             </p>
             <div className="panel">
-              {groups.map((g) => (
+              {groups.length === 0 && (
+                <p className="row-item" style={{ color: "var(--muted)", margin: 0 }}>
+                  لا مجموعات بعد — أنشئ مجموعة وعيّن معلماً.
+                </p>
+              )}
+              {groups.map((g) => {
+                const ratio = g.seatCount ? Math.min(1, g.currentStudentCount / g.seatCount) : 0;
+                return (
                 <div
                   key={g.id}
                   className="row-item"
@@ -513,27 +592,36 @@ export default function AdminHome() {
                     alignItems: "flex-start",
                   }}
                 >
-                  <div>
-                    <h3
-                      style={{
-                        margin: 0,
-                        fontSize: "1.2rem",
-                        fontFamily: "var(--font-display)",
-                        color: "var(--forest)",
-                      }}
-                    >
-                      {g.name}
-                    </h3>
-                    <p style={{ margin: "0.4rem 0 0", color: "var(--muted)", fontSize: "0.92rem" }}>
-                      {g.weeklySessionDay} · {g.weeklySessionTime} ·{" "}
-                      {g.currentStudentCount}/{g.seatCount} مقعد ·{" "}
-                      {STATUS_AR[g.status] || g.status}
+                  <div style={{ flex: "1 1 240px" }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: "1.15rem",
+                          fontFamily: "var(--font-body)",
+                          fontWeight: 700,
+                          color: "var(--forest)",
+                        }}
+                      >
+                        {g.name}
+                      </h3>
+                      {chip(
+                        STATUS_AR[g.status] || g.status,
+                        g.status === "open" ? "ok" : g.status === "full" ? "warn" : "neutral",
+                      )}
+                    </div>
+                    <p style={{ margin: "0.4rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
+                      {g.weeklySessionDay} · {g.weeklySessionTime}
+                      {g.teacher ? ` · المعلم: ${g.teacher.firstName} ${g.teacher.lastName}` : ""}
                     </p>
-                    {g.teacher && (
-                      <p style={{ margin: "0.25rem 0 0", fontSize: "0.92rem" }}>
-                        المعلم: {g.teacher.firstName} {g.teacher.lastName}
+                    <div style={{ marginTop: 8, maxWidth: 280 }}>
+                      <div style={{ height: 8, borderRadius: 6, background: "var(--mist-deep, #d3e2da)", overflow: "hidden" }}>
+                        <div style={{ width: `${ratio * 100}%`, height: "100%", background: "var(--forest-mid)" }} />
+                      </div>
+                      <p style={{ margin: "4px 0 0", fontSize: "0.78rem", color: "var(--muted)" }}>
+                        {g.currentStudentCount}/{g.seatCount} مقعد
                       </p>
-                    )}
+                    </div>
                   </div>
                   {g.whatsappUrl && (
                     <a
@@ -541,13 +629,13 @@ export default function AdminHome() {
                       target="_blank"
                       rel="noreferrer"
                       className="btn-ghost"
-                      style={{ background: "var(--gold-soft)", borderColor: "transparent" }}
+                      style={{ background: "var(--gold-soft)", borderColor: "transparent", minHeight: 44 }}
                     >
                       واتساب المجموعة
                     </a>
                   )}
                 </div>
-              ))}
+              );})}
             </div>
           </section>
         )}
