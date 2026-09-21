@@ -105,7 +105,13 @@ class _GatePageState extends State<GatePage> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'طالب 0500000003 · معلم 0500000002 · مشرف عبر الويب',
+                          'طالب 0500000003 · معلم 0500000002 · مشرف 0500000001',
+                          style: ui(size: 11, color: Brand.muted),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'المشرف يدخل من التطبيق أو لوحة الويب بنفس الحساب',
                           style: ui(size: 11, color: Brand.muted),
                           textAlign: TextAlign.center,
                         ),

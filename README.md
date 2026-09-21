@@ -76,6 +76,8 @@ npm run dev
 
 Open http://127.0.0.1:43123 — login with supervisor `0500000001` / `password123`.
 
+The same supervisor account also works in the Flutter app (`?phone=0500000001&auto=1` on web preview).
+
 ---
 
 ## 3) Flutter app (students + teachers)
@@ -130,7 +132,7 @@ npm run start:dev
 
 - **Student:** home CTA «أرسل تقرير اليوم», stepped daily report (حفظ → مراجعة → تكرار/تفسير → إرسال), weekly confirm, notes inbox, bottom nav الرئيسية / مجموعتي / تقرير / تقدّمي
 - **Teacher:** priorities (لم يرسلوا / تقصير / مجلس اليوم), student file + notes (internal/visible), attendance marking, notifications list, nav الرئيسية / طلبة / حضور / إشعارات
-- **Supervisor admin:** pending joins first, status chips, seat progress bars, action toasts
+- **Supervisor:** Flutter app (dashboard, join requests, groups, policies) **and** Next.js admin web — same account works on both
 - Typography: Amiri for «ارتق» brand; Cairo for UI body
 
 Still deferred: deadline enforcement, auto-infraction engine, FCM/SMS, quota set UI (API exists; Flutter reads only)

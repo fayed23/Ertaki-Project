@@ -3,6 +3,7 @@ import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/gate.dart';
 import 'package:ertaki_mobile/student_screens.dart';
+import 'package:ertaki_mobile/supervisor_screens.dart';
 import 'package:ertaki_mobile/teacher_screens.dart';
 import 'package:ertaki_mobile/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,35 +53,54 @@ class _HomeShellState extends State<HomeShell> {
       );
     }
     final role = me!['role'] as String;
-    final isTeacher = role == 'teacher' || role == 'supervisor' || role == 'admin';
+    final isSupervisor = role == 'supervisor' || role == 'admin';
+    final isTeacher = role == 'teacher';
 
-    final pages = isTeacher
-        ? [
-            TeacherHome(api: api, me: me!),
-            TeacherStudents(api: api),
-            TeacherAttendance(api: api),
-            NotificationsPage(api: api),
-          ]
-        : [
-            StudentHome(api: api, me: me!, onGoReport: () => setState(() => tab = 2)),
-            StudentGroup(api: api),
-            StudentDailyReport(api: api),
-            StudentProgress(api: api, me: me!),
-          ];
+    late final List<Widget> pages;
+    late final List<NavigationDestination> destinations;
 
-    final destinations = isTeacher
-        ? const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'الرئيسية'),
-            NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'طلبة'),
-            NavigationDestination(icon: Icon(Icons.event_available_outlined), selectedIcon: Icon(Icons.event_available), label: 'حضور'),
-            NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: 'إشعارات'),
-          ]
-        : const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'الرئيسية'),
-            NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'مجموعتي'),
-            NavigationDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: 'تقرير'),
-            NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'تقدّمي'),
-          ];
+    if (isSupervisor) {
+      pages = [
+        SupervisorHome(api: api, me: me!, onGoJoins: () => setState(() => tab = 1)),
+        SupervisorJoins(api: api),
+        SupervisorGroups(api: api),
+        SupervisorPolicies(api: api),
+      ];
+      destinations = const [
+        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'الرئيسية'),
+        NavigationDestination(icon: Icon(Icons.how_to_reg_outlined), selectedIcon: Icon(Icons.how_to_reg), label: 'طلبات'),
+        NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'مجموعات'),
+        NavigationDestination(icon: Icon(Icons.rule_outlined), selectedIcon: Icon(Icons.rule), label: 'سياسات'),
+      ];
+    } else if (isTeacher) {
+      pages = [
+        TeacherHome(api: api, me: me!),
+        TeacherStudents(api: api),
+        TeacherAttendance(api: api),
+        NotificationsPage(api: api),
+      ];
+      destinations = const [
+        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'الرئيسية'),
+        NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'طلبة'),
+        NavigationDestination(icon: Icon(Icons.event_available_outlined), selectedIcon: Icon(Icons.event_available), label: 'حضور'),
+        NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: 'إشعارات'),
+      ];
+    } else {
+      pages = [
+        StudentHome(api: api, me: me!, onGoReport: () => setState(() => tab = 2)),
+        StudentGroup(api: api),
+        StudentDailyReport(api: api),
+        StudentProgress(api: api, me: me!),
+      ];
+      destinations = const [
+        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'الرئيسية'),
+        NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'مجموعتي'),
+        NavigationDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: 'تقرير'),
+        NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'تقدّمي'),
+      ];
+    }
+
+    final safeTab = tab.clamp(0, pages.length - 1);
 
     return Scaffold(
       appBar: AppBar(
@@ -94,9 +114,9 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ],
       ),
-      body: Atmosphere(child: pages[tab]),
+      body: Atmosphere(child: pages[safeTab]),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: tab,
+        selectedIndex: safeTab,
         onDestinationSelected: (i) => setState(() => tab = i),
         destinations: destinations,
       ),
