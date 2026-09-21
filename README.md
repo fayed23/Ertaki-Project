@@ -157,6 +157,17 @@ npm run start:dev
 
 ---
 
+## Recent UX (high-impact + polish)
+
+- **Student:** home CTA «أرسل تقرير اليوم», stepped daily report (حفظ → مراجعة → تكرار/تفسير → إرسال), weekly confirm, notes inbox, bottom nav الرئيسية / مجموعتي / تقرير / تقدّمي
+- **Teacher:** priorities (لم يرسلوا / تقصير / مجلس اليوم), student file + notes (internal/visible), attendance marking, notifications list, nav الرئيسية / طلبة / حضور / إشعارات
+- **Supervisor admin:** pending joins first, status chips, seat progress bars, action toasts
+- Typography: Amiri for «ارتق» brand; Cairo for UI body
+
+Still deferred: deadline enforcement, auto-infraction engine, FCM/SMS, quota set UI (API exists; Flutter reads only)
+
+---
+
 ## Repo layout
 
 ```
