@@ -16,7 +16,9 @@ class GatePage extends StatefulWidget {
 class _GatePageState extends State<GatePage> {
   late final TextEditingController phoneCtrl;
   final passCtrl = TextEditingController(text: 'password123');
+  late final TextEditingController apiCtrl;
   bool loading = false;
+  bool showApi = true;
 
   @override
   void initState() {
@@ -25,6 +27,7 @@ class _GatePageState extends State<GatePage> {
     phoneCtrl = TextEditingController(
       text: (q != null && q.isNotEmpty) ? q : '0500000003',
     );
+    apiCtrl = TextEditingController(text: AppConfig.apiBase);
     if (Uri.base.queryParameters['auto'] == '1') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) login();
@@ -36,12 +39,14 @@ class _GatePageState extends State<GatePage> {
   void dispose() {
     phoneCtrl.dispose();
     passCtrl.dispose();
+    apiCtrl.dispose();
     super.dispose();
   }
 
   Future<void> login() async {
     setState(() => loading = true);
     try {
+      await AppConfig.setApiBase(apiCtrl.text);
       final api = ApiClient(null);
       final res = await api.post('/auth/login', {
         'phone': phoneCtrl.text.trim(),
@@ -102,7 +107,28 @@ class _GatePageState extends State<GatePage> {
                           obscureText: true,
                           decoration: const InputDecoration(labelText: 'كلمة المرور'),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => setState(() => showApi = !showApi),
+                          child: Text(
+                            showApi ? 'إخفاء عنوان الخادم' : 'إعداد عنوان الخادم (API)',
+                            style: ui(size: 13, color: Brand.forestMid, weight: FontWeight.w600),
+                          ),
+                        ),
+                        if (showApi) ...[
+                          TextField(
+                            controller: apiCtrl,
+                            keyboardType: TextInputType.url,
+                            textDirection: TextDirection.ltr,
+                            decoration: const InputDecoration(
+                              labelText: 'API base URL',
+                              hintText: 'http://192.168.1.10:43124/api',
+                              helperText: 'Phone must reach this host (LAN / ngrok / deployed)',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        const SizedBox(height: 10),
                         FilledButton(
                           onPressed: loading ? null : login,
                           child: Text(loading ? 'جاري الدخول…' : 'دخول'),
