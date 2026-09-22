@@ -205,6 +205,7 @@ Set `FCM_SERVER_KEY` on the API for real device push. Without it, alerts are sto
 api/               NestJS API
 admin/             Next.js supervisor UI (RTL)
 mobile/            Flutter (Android + iOS + web)
+releases/          Sideload Android APK(s)
 requirements.md    Full Arabic product requirements
 docker-compose.yml Optional Postgres
 README.md          This file
