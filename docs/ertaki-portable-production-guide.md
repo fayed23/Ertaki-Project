@@ -90,7 +90,7 @@ A mobile binary is untrusted. DB credentials in the APK equal a public database.
 
 ## 1.4 Anatomy of one request — “Student submits التقرير اليومي”
 
-1. Student completes stepped form (حفظ → مراجعة → تكرار/تفسير → إرسال).  
+1. Student completes the single-screen daily report (حفظ + times, مراجعة + times, تكرار 50 / مجلس واحد, تفسير) and taps sticky submit.  
 2. Flutter `POST /api/daily-reports` with `Authorization: Bearer <JWT>`.  
 3. Nest validates role=`student`, rejects if a report for that date already exists (**no edit after submit**).  
 4. Persists structured fields; evaluates **content** infractions (e.g. missed quota / missed 50 reps) via `InfractionPolicy` — **not** “late by clock” auto-infractions.  
@@ -317,7 +317,7 @@ Use these as a **professional restructure track**. Many levels already have an M
 | **7** | Secure token storage on device | Tokens survive restart; logout clears them |
 | **8** | RBAC guards + domain authz | Student cannot read peers’ daily reports (automated test) |
 | **9** | Groups, joins, WhatsApp link | Supervisor accept/reject; seat counts |
-| **10** | Daily report stepped UX + immutability | Second POST same day → 400; staff notified |
+| **10** | Daily report single-screen UX + immutability | Second POST same day → 400; staff notified |
 | **11** | Weekly generate + student confirm | Confirm endpoint idempotent |
 | **12** | Attendance + excuses | Unexcused creates content-sourced تقصير per policy |
 | **13** | Notes internal/visible + quotas per student | Student sees only visible notes |

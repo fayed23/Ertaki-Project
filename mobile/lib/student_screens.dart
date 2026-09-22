@@ -283,20 +283,34 @@ class StudentDailyReport extends StatefulWidget {
 }
 
 class _StudentDailyReportState extends State<StudentDailyReport> {
-  int step = 0;
   bool memorizedQuota = true;
   bool fifty = true;
   bool oneSitting = true;
   bool tafsir = false;
   final reviewCtrl = TextEditingController(text: 'الحزب 1');
+  final memFromCtrl = TextEditingController();
+  final memToCtrl = TextEditingController();
+  final reviewFromCtrl = TextEditingController();
+  final reviewToCtrl = TextEditingController();
   bool loading = false;
   bool alreadySubmitted = false;
   bool checking = true;
+  String? validationError;
 
   @override
   void initState() {
     super.initState();
     _check();
+  }
+
+  @override
+  void dispose() {
+    reviewCtrl.dispose();
+    memFromCtrl.dispose();
+    memToCtrl.dispose();
+    reviewFromCtrl.dispose();
+    reviewToCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _check() async {
@@ -311,13 +325,27 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
     }
   }
 
+  bool _validate() {
+    if (reviewCtrl.text.trim().isEmpty) {
+      setState(() => validationError = 'أدخل ورد المراجعة');
+      return false;
+    }
+    setState(() => validationError = null);
+    return true;
+  }
+
   Future<void> submit() async {
+    if (!_validate()) return;
     setState(() => loading = true);
     try {
       await widget.api.post('/daily-reports', {
         'reportDate': todayIso(),
         'memorizedQuota': memorizedQuota,
+        'memorizationFrom': memFromCtrl.text.trim().isEmpty ? null : memFromCtrl.text.trim(),
+        'memorizationTo': memToCtrl.text.trim().isEmpty ? null : memToCtrl.text.trim(),
         'reviewPortion': reviewCtrl.text.trim(),
+        'reviewFrom': reviewFromCtrl.text.trim().isEmpty ? null : reviewFromCtrl.text.trim(),
+        'reviewTo': reviewToCtrl.text.trim().isEmpty ? null : reviewToCtrl.text.trim(),
         'completedFiftyRepetitions': fifty,
         'repeatedInOneSitting': oneSitting,
         'readTafsir': tafsir,
@@ -339,7 +367,7 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
     if (alreadySubmitted) {
       return ListView(
         padding: const EdgeInsets.all(16),
-        children: [
+        children: const [
           EmptyState(
             icon: Icons.lock_outline,
             title: 'تقرير اليوم مُرسل',
@@ -349,92 +377,128 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
       );
     }
 
-    final steps = ['الحفظ', 'المراجعة', 'التكرار والتفسير', 'إرسال'];
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('التقرير اليومي', style: ui(size: 22, weight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              Row(
-                children: List.generate(steps.length, (i) {
-                  final active = i <= step;
-                  return Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: active ? Brand.forestMid : Brand.mistDeep,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 6),
-              Text(steps[step], style: ui(size: 13, color: Brand.muted, weight: FontWeight.w600)),
-            ],
-          ),
-        ),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             children: [
+              Text('التقرير اليومي', style: ui(size: 22, weight: FontWeight.w700)),
+              Text('تاريخ اليوم: ${todayIso()}', style: ui(size: 13, color: Brand.muted)),
+              const SizedBox(height: 12),
               SoftPanel(
-                child: switch (step) {
-                  0 => SwitchListTile(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('حفظ الورد', style: ui(size: 16, weight: FontWeight.w700)),
+                    SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       activeColor: Brand.forestMid,
-                      title: Text('حفظت القسط اليومي', style: ui(weight: FontWeight.w700)),
+                      title: Text('حفظت القسط اليومي', style: ui(weight: FontWeight.w600)),
                       value: memorizedQuota,
                       onChanged: (v) => setState(() => memorizedQuota = v),
                     ),
-                  1 => TextField(
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: memFromCtrl,
+                            textDirection: TextDirection.ltr,
+                            decoration: const InputDecoration(
+                              labelText: 'من (وقت الحفظ)',
+                              hintText: '20:00',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: memToCtrl,
+                            textDirection: TextDirection.ltr,
+                            decoration: const InputDecoration(
+                              labelText: 'إلى',
+                              hintText: '21:00',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              SoftPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('المراجعة', style: ui(size: 16, weight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    TextField(
                       controller: reviewCtrl,
                       decoration: const InputDecoration(labelText: 'ورد المراجعة'),
                     ),
-                  2 => Column(
+                    const SizedBox(height: 10),
+                    Row(
                       children: [
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          activeColor: Brand.forestMid,
-                          title: Text('أكملت 50 تكراراً', style: ui(weight: FontWeight.w700)),
-                          value: fifty,
-                          onChanged: (v) => setState(() => fifty = v),
+                        Expanded(
+                          child: TextField(
+                            controller: reviewFromCtrl,
+                            textDirection: TextDirection.ltr,
+                            decoration: const InputDecoration(
+                              labelText: 'من (وقت المراجعة)',
+                              hintText: '21:00',
+                            ),
+                          ),
                         ),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          activeColor: Brand.forestMid,
-                          title: Text('التكرار في مجلس واحد', style: ui(weight: FontWeight.w700)),
-                          value: oneSitting,
-                          onChanged: (v) => setState(() => oneSitting = v),
-                        ),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          activeColor: Brand.forestMid,
-                          title: Text('قرأت ورد التفسير', style: ui(weight: FontWeight.w700)),
-                          value: tafsir,
-                          onChanged: (v) => setState(() => tafsir = v),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: reviewToCtrl,
+                            textDirection: TextDirection.ltr,
+                            decoration: const InputDecoration(
+                              labelText: 'إلى',
+                              hintText: '21:30',
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  _ => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('مراجعة قبل الإرسال', style: ui(weight: FontWeight.w700)),
-                        const SizedBox(height: 8),
-                        Text('القسط: ${memorizedQuota ? 'نعم' : 'لا'}', style: ui()),
-                        Text('المراجعة: ${reviewCtrl.text}', style: ui()),
-                        Text('50 تكرار: ${fifty ? 'نعم' : 'لا'}', style: ui()),
-                        Text('مجلس واحد: ${oneSitting ? 'نعم' : 'لا'}', style: ui()),
-                        Text('تفسير: ${tafsir ? 'نعم' : 'لا'}', style: ui()),
-                      ],
-                    ),
-                },
+                  ],
+                ),
               ),
+              const SizedBox(height: 10),
+              SoftPanel(
+                child: Column(
+                  children: [
+                    Text('التكرار والتفسير', style: ui(size: 16, weight: FontWeight.w700)),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      activeColor: Brand.forestMid,
+                      title: Text('أكملت 50 تكراراً', style: ui(weight: FontWeight.w600)),
+                      value: fifty,
+                      onChanged: (v) => setState(() => fifty = v),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      activeColor: Brand.forestMid,
+                      title: Text('التكرار في مجلس واحد', style: ui(weight: FontWeight.w600)),
+                      value: oneSitting,
+                      onChanged: (v) => setState(() => oneSitting = v),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      activeColor: Brand.forestMid,
+                      title: Text('قرأت ورد التفسير', style: ui(weight: FontWeight.w600)),
+                      value: tafsir,
+                      onChanged: (v) => setState(() => tafsir = v),
+                    ),
+                  ],
+                ),
+              ),
+              if (validationError != null) ...[
+                const SizedBox(height: 8),
+                Text(validationError!, style: ui(size: 13, color: Brand.danger, weight: FontWeight.w600)),
+              ],
             ],
           ),
         ),
@@ -445,25 +509,9 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
               color: Brand.paper,
               border: Border(top: BorderSide(color: Brand.line)),
             ),
-            child: Row(
-              children: [
-                if (step > 0)
-                  OutlinedButton(
-                    onPressed: () => setState(() => step--),
-                    child: const Text('رجوع'),
-                  ),
-                const Spacer(),
-                if (step < 3)
-                  FilledButton(
-                    onPressed: () => setState(() => step++),
-                    child: const Text('التالي'),
-                  )
-                else
-                  FilledButton(
-                    onPressed: loading ? null : submit,
-                    child: Text(loading ? 'جاري الإرسال…' : 'إرسال التقرير'),
-                  ),
-              ],
+            child: FilledButton(
+              onPressed: loading ? null : submit,
+              child: Text(loading ? 'جاري الإرسال…' : 'إرسال التقرير'),
             ),
           ),
         ),

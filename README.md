@@ -180,7 +180,7 @@ npm run start:dev
 
 ## Recent UX (high-impact + polish)
 
-- **Student:** home CTA «أرسل تقرير اليوم», stepped daily report (حفظ → مراجعة → تكرار/تفسير → إرسال), weekly confirm, notes inbox, bottom nav الرئيسية / مجموعتي / تقرير / تقدّمي
+- **Student:** home CTA «أرسل تقرير اليوم», single-screen daily report (all fields + sticky submit), weekly confirm, notes inbox, bottom nav الرئيسية / مجموعتي / تقرير / تقدّمي
 - **Teacher:** priorities (لم يرسلوا / تقصير / مجلس اليوم), student file + notes (internal/visible), attendance marking, notifications list, nav الرئيسية / طلبة / حضور / إشعارات
 - **Supervisor:** Flutter app (dashboard, join requests, groups, policies) **and** Next.js admin web — same account works on both
 - Typography: Amiri for «ارتق» brand; Cairo for UI body
