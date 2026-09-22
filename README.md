@@ -7,7 +7,8 @@ git clone https://github.com/fayed23/Ertaki-Project.git
 cd Ertaki-Project
 ```
 
-Full product requirements: [`requirements.md`](./requirements.md)
+Full product requirements: [`requirements.md`](./requirements.md)  
+Professional rebuild / production curriculum: [`docs/ertaki-portable-production-guide.md`](./docs/ertaki-portable-production-guide.md)
 
 ---
 
