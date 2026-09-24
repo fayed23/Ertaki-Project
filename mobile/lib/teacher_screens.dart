@@ -45,7 +45,11 @@ class _TeacherHomeState extends State<TeacherHome> {
   }
 
   void _open(Widget page) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ColoredBox(color: Brand.mist, child: page),
+      ),
+    );
   }
 
   @override
@@ -273,7 +277,7 @@ class TeacherReportsHub extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('التقارير الأسبوعية', style: ui(size: 16, weight: FontWeight.w700)),
-                        Text('موجز وتفصيلي — توليد تلقائي', style: ui(size: 13, color: Brand.muted)),
+                        Text('بعد حفظ حضور المجلس · موجز وتفصيلي', style: ui(size: 13, color: Brand.muted)),
                       ],
                     ),
                   ),
@@ -342,7 +346,8 @@ class _TeacherStudentsState extends State<TeacherStudents> {
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
-    return RefreshIndicator(
+    final asPage = ModalRoute.of(context)?.isFirst == false;
+    final body = RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
@@ -350,7 +355,10 @@ class _TeacherStudentsState extends State<TeacherStudents> {
           Row(
             children: [
               Expanded(
-                child: Text('طلبة حسب المجموعة', style: ui(size: 22, weight: FontWeight.w700)),
+                child: Text(
+                  asPage ? 'الطلبة' : 'طلبة حسب المجموعة',
+                  style: ui(size: 22, weight: FontWeight.w700),
+                ),
               ),
               IconButton(
                 tooltip: 'إنشاء مجموعة',
@@ -366,7 +374,7 @@ class _TeacherStudentsState extends State<TeacherStudents> {
           ),
           const SizedBox(height: 4),
           Text(
-            'كل طالب يظهر تحت مجموعته فقط · ${dash?['today'] ?? ''}',
+            'كل طالب يظهر داخل مجموعته فقط · ${dash?['today'] ?? ''}',
             style: ui(size: 13, color: Brand.muted),
           ),
           const SizedBox(height: 14),
@@ -381,12 +389,13 @@ class _TeacherStudentsState extends State<TeacherStudents> {
               final group = block['group'] as Map<String, dynamic>;
               final students = block['students'] as List<Map<String, dynamic>>;
               final status = '${group['status'] ?? ''}';
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 18),
+              return SoftPanel(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SoftPanel(
+                    InkWell(
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -398,78 +407,93 @@ class _TeacherStudentsState extends State<TeacherStudents> {
                           ),
                         );
                       },
-                      child: Row(
-                        children: [
-                          const Icon(Icons.groups_rounded, color: Brand.forestMid),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${group['name']}', style: ui(size: 17, weight: FontWeight.w700)),
-                                Text(
-                                  status == 'pending_approval'
-                                      ? 'بانتظار موافقة المشرف · موجز / تفصيلي'
-                                      : 'اضغط للعرض الموجز أو التفصيلي',
-                                  style: ui(size: 12, color: Brand.muted),
-                                ),
-                              ],
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.groups_rounded, color: Brand.forestMid),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${group['name']}', style: ui(size: 17, weight: FontWeight.w700)),
+                                  Text(
+                                    status == 'pending_approval'
+                                        ? 'بانتظار موافقة المشرف · موجز / تفصيلي'
+                                        : 'اضغط لعرض المجموعة',
+                                    style: ui(size: 12, color: Brand.muted),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          StatusChip(
-                            label: '${students.length} طالب',
-                            tone: ChipTone.neutral,
-                          ),
-                          const Icon(Icons.chevron_left, color: Brand.muted),
-                        ],
+                            StatusChip(
+                              label: '${students.length} طالب',
+                              tone: ChipTone.neutral,
+                            ),
+                            const Icon(Icons.chevron_left, color: Brand.muted),
+                          ],
+                        ),
                       ),
                     ),
                     if (students.isEmpty)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 4, 0),
+                        padding: const EdgeInsets.fromLTRB(8, 10, 4, 6),
                         child: Text(
                           'لا طلبة في هذه المجموعة بعد',
                           style: ui(size: 13, color: Brand.muted),
                         ),
                       )
-                    else
-                      ...students.map(
-                        (s) => Padding(
-                          padding: const EdgeInsets.only(top: 8, right: 12),
-                          child: SoftPanel(
-                            margin: EdgeInsets.zero,
-                            onTap: () async {
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => StudentFilePage(
-                                    api: widget.api,
-                                    studentId: s['id'] as String,
-                                    studentName: s['name'] as String,
-                                    groupId: s['groupId'] as String?,
+                    else ...[
+                      const SizedBox(height: 8),
+                      const Divider(height: 1, color: Brand.line),
+                      ...students.asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final s = entry.value;
+                        return Column(
+                          children: [
+                            if (i > 0)
+                              const Divider(height: 1, color: Brand.line),
+                            InkWell(
+                              onTap: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => StudentFilePage(
+                                      api: widget.api,
+                                      studentId: s['id'] as String,
+                                      studentName: s['name'] as String,
+                                      groupId: s['groupId'] as String?,
+                                    ),
                                   ),
+                                );
+                                await _load();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                                child: Row(
+                                  children: [
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.person_outline, color: Brand.forestMid, size: 22),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('${s['name']}', style: ui(weight: FontWeight.w700)),
+                                          Text('${s['phone']}', style: ui(size: 12, color: Brand.muted)),
+                                        ],
+                                      ),
+                                    ),
+                                    const Icon(Icons.chevron_left, color: Brand.muted, size: 20),
+                                  ],
                                 ),
-                              );
-                              await _load();
-                            },
-                            child: Row(
-                              children: [
-                                const Icon(Icons.person_outline, color: Brand.forestMid, size: 22),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('${s['name']}', style: ui(weight: FontWeight.w700)),
-                                      Text('${s['phone']}', style: ui(size: 12, color: Brand.muted)),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(Icons.chevron_left, color: Brand.muted),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
+                          ],
+                        );
+                      }),
+                    ],
                   ],
                 ),
               );
@@ -477,7 +501,16 @@ class _TeacherStudentsState extends State<TeacherStudents> {
         ],
       ),
     );
+    if (!asPage) return body;
+    return Scaffold(
+      backgroundColor: Brand.mist,
+      appBar: AppBar(
+        title: Text('الطلبة', style: ui(size: 18, weight: FontWeight.w700)),
+      ),
+      body: Atmosphere(child: body),
+    );
   }
+
 }
 
 class StudentFilePage extends StatefulWidget {
@@ -692,17 +725,23 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
     if (groupId == null) return;
     setState(() => saving = true);
     try {
-      for (final s in students) {
+      final entries = students.map((s) {
         final id = s['id'] as String;
-        final status = statusByStudent[id] ?? 'present';
-        await widget.api.post('/attendance', {
+        return {
           'studentId': id,
-          'groupId': groupId,
-          'sessionDate': todayIso(),
-          'status': status,
-        });
-      }
-      showToast(context, 'تم حفظ حضور المجلس الأسبوعي');
+          'status': statusByStudent[id] ?? 'present',
+        };
+      }).toList();
+      final res = await widget.api.post('/attendance/weekly', {
+        'groupId': groupId,
+        'sessionDate': todayIso(),
+        'entries': entries,
+      }) as Map<String, dynamic>;
+      final n = (res['generated'] as num?)?.toInt() ?? entries.length;
+      showToast(
+        context,
+        'تم حفظ حضور المجلس الأسبوعي وتوليد $n تقريراً أسبوعياً',
+      );
     } catch (e) {
       showToast(context, e.toString(), error: true);
     } finally {
@@ -713,8 +752,10 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
+    final asPage = ModalRoute.of(context)?.isFirst == false;
+    Widget body;
     if (students.isEmpty) {
-      return ListView(
+      body = ListView(
         padding: const EdgeInsets.all(16),
         children: const [
           EmptyState(
@@ -723,61 +764,75 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
           ),
         ],
       );
+    } else {
+      body = Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!asPage)
+                    Text('حضور المجلس الأسبوعي', style: ui(size: 22, weight: FontWeight.w700)),
+                  Text('${groupName ?? ''} · أسبوع ${todayIso()}', style: ui(size: 13, color: Brand.muted)),
+                  Text(
+                    'بعد الحفظ تُولَّد التقارير الأسبوعية لكل طالب',
+                    style: ui(size: 12, color: Brand.muted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: students.length,
+              itemBuilder: (_, i) {
+                final s = students[i];
+                final id = s['id'] as String;
+                final status = statusByStudent[id] ?? 'present';
+                return SoftPanel(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${s['name']}', style: ui(weight: FontWeight.w700)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          _attChip(id, 'present', 'حاضر', status),
+                          _attChip(id, 'excused', 'بعذر', status),
+                          _attChip(id, 'unexcused', 'بلا عذر', status),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: FilledButton(
+                onPressed: saving ? null : _saveAll,
+                child: Text(saving ? 'جاري الحفظ…' : 'حفظ الحضور الأسبوعي'),
+              ),
+            ),
+          ),
+        ],
+      );
     }
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('حضور المجلس الأسبوعي', style: ui(size: 22, weight: FontWeight.w700)),
-                Text('${groupName ?? ''} · أسبوع ${todayIso()}', style: ui(size: 13, color: Brand.muted)),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: students.length,
-            itemBuilder: (_, i) {
-              final s = students[i];
-              final id = s['id'] as String;
-              final status = statusByStudent[id] ?? 'present';
-              return SoftPanel(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${s['name']}', style: ui(weight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        _attChip(id, 'present', 'حاضر', status),
-                        _attChip(id, 'excused', 'بعذر', status),
-                        _attChip(id, 'unexcused', 'بلا عذر', status),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: FilledButton(
-              onPressed: saving ? null : _saveAll,
-              child: Text(saving ? 'جاري الحفظ…' : 'حفظ الحضور الأسبوعي'),
-            ),
-          ),
-        ),
-      ],
+    if (!asPage) return body;
+    return Scaffold(
+      backgroundColor: Brand.mist,
+      appBar: AppBar(
+        title: Text('حضور المجلس الأسبوعي', style: ui(size: 18, weight: FontWeight.w700)),
+      ),
+      body: Atmosphere(child: body),
     );
   }
 

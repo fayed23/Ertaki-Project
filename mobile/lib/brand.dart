@@ -44,6 +44,7 @@ ThemeData buildErtakiTheme() {
   final base = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
+    canvasColor: Brand.mist,
     colorScheme: const ColorScheme.light(
       primary: Brand.forestMid,
       secondary: Brand.gold,

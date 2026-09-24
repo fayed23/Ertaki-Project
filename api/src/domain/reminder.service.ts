@@ -87,7 +87,11 @@ export class ReminderService implements OnModuleInit {
     }
   }
 
-  /** Saturday 00:15 Africa/Algiers — generate reports for the week that just ended. */
+  /**
+   * Saturday 00:15 Africa/Algiers — fallback only for students who already have
+   * weekly attendance that week but still lack a weekly report. Primary trigger
+   * is teacher POST /attendance/weekly after saving مجلس attendance.
+   */
   @Cron('15 0 * * 6', { timeZone: 'Africa/Algiers' })
   async tickWeeklyReports() {
     const key = new Date().toISOString().slice(0, 10);
@@ -96,7 +100,7 @@ export class ReminderService implements OnModuleInit {
     try {
       const result = await this.domain.autoGenerateWeeklyReports('Africa/Algiers');
       this.logger.log(
-        `Auto weekly reports: created=${result.created} week=${result.weekStart}..${result.weekEnd}`,
+        `Auto weekly reports (fallback): created=${result.created} skippedNoAttendance=${result.skippedNoAttendance} week=${result.weekStart}..${result.weekEnd}`,
       );
     } catch (e) {
       this.logger.error(`Auto weekly reports failed: ${e}`);

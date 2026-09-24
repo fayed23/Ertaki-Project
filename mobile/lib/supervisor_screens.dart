@@ -48,7 +48,11 @@ class _SupervisorHomeState extends State<SupervisorHome> {
   }
 
   void _open(Widget page) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ColoredBox(color: Brand.mist, child: page),
+      ),
+    );
   }
 
   @override

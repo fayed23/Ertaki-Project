@@ -274,6 +274,27 @@ export class DomainController {
     return this.domain.recordAttendance(user, body);
   }
 
+  /** Teacher: save weekly مجلس attendance then generate/update PDF-format weekly reports. */
+  @Post('attendance/weekly')
+  @Roles(UserRole.TEACHER)
+  saveWeeklyAttendance(
+    @CurrentUser() user: User,
+    @Body()
+    body: {
+      groupId: string;
+      sessionDate: string;
+      entries: Array<{
+        studentId: string;
+        status: AttendanceStatus;
+        arrivedLate?: boolean;
+        leftEarly?: boolean;
+        note?: string;
+      }>;
+    },
+  ) {
+    return this.domain.saveWeeklyAttendance(user, body);
+  }
+
   @Get('attendance')
   @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
   listAttendance(

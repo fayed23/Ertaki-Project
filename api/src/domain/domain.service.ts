@@ -757,12 +757,33 @@ export class DomainService {
     mode: 'brief' | 'detailed' = 'brief',
   ) {
     const student = w.student;
+    const summary = (w.summaryJson ?? {}) as Record<string, unknown>;
+    const attended =
+      typeof summary.attendedMajlis === 'boolean'
+        ? summary.attendedMajlis
+        : w.presentSessions > 0;
+    const pdf = {
+      attendedMajlis: attended,
+      attendedMajlisLabel: attended ? 'نعم' : 'لا',
+      missedDailyReports:
+        (summary.missedDailyReports as number | undefined) ??
+        Math.max(0, 7 - w.dailyReportsSubmitted),
+      missedQuota:
+        (summary.missedQuota as number | undefined) ??
+        Math.max(0, 7 - w.quotaDaysMet),
+      missedFiftyReps:
+        (summary.missedFiftyReps as number | undefined) ??
+        Math.max(0, 7 - w.fiftyRepsDaysMet),
+      missedSingleSitting: (summary.missedSingleSitting as number | undefined) ?? 0,
+      missedReview: (summary.missedReview as number | undefined) ?? 0,
+    };
+    const studentName = student
+      ? `${student.firstName} ${student.lastName}`
+      : null;
     const base = {
       id: w.id,
       studentId: w.studentId,
-      studentName: student
-        ? `${student.firstName} ${student.lastName}`
-        : null,
+      studentName,
       groupId: w.groupId,
       groupName: w.group?.name ?? null,
       weekStartDate: w.weekStartDate,
@@ -773,6 +794,7 @@ export class DomainService {
       presentSessions: w.presentSessions,
       excusedAbsences: w.excusedAbsences,
       unexcusedAbsences: w.unexcusedAbsences,
+      ...pdf,
       studentConfirmedAt: w.studentConfirmedAt,
       generatedAt: w.generatedAt,
       mode,
@@ -1432,7 +1454,7 @@ export class DomainService {
     studentId: string,
     weekStartDate: string,
     weekEndDate: string,
-    opts?: { silent?: boolean },
+    opts?: { silent?: boolean; sessionDate?: string; groupId?: string },
   ) {
     if (actor) {
       if (this.isSupervisor(actor)) {
@@ -1446,28 +1468,58 @@ export class DomainService {
     const membership = await this.memberships.findOne({
       where: { userId: studentId, leftAt: IsNull() },
     });
+    const groupId = opts?.groupId ?? membership?.groupId ?? null;
     const dailies = await this.dailyReports
       .createQueryBuilder('r')
       .where('r.studentId = :studentId', { studentId })
       .andWhere('r.reportDate >= :start', { start: weekStartDate })
       .andWhere('r.reportDate <= :end', { end: weekEndDate })
       .getMany();
-    const att = membership
+    const att = groupId
       ? await this.attendance
           .createQueryBuilder('a')
           .where('a.studentId = :studentId', { studentId })
-          .andWhere('a.groupId = :groupId', { groupId: membership.groupId })
+          .andWhere('a.groupId = :groupId', { groupId })
           .andWhere('a.sessionDate >= :start', { start: weekStartDate })
           .andWhere('a.sessionDate <= :end', { end: weekEndDate })
           .getMany()
       : [];
+    const byDate = new Map(dailies.map((d) => [d.reportDate, d]));
+    const days = this.eachDateInclusive(weekStartDate, weekEndDate);
+    let missedDailyReports = 0;
+    let missedQuota = 0;
+    let missedFiftyReps = 0;
+    let missedSingleSitting = 0;
+    let missedReview = 0;
+    for (const day of days) {
+      const r = byDate.get(day);
+      if (!r) {
+        missedDailyReports++;
+        missedQuota++;
+        missedFiftyReps++;
+        missedSingleSitting++;
+        missedReview++;
+        continue;
+      }
+      if (!r.memorizedQuota) missedQuota++;
+      if (!r.completedFiftyRepetitions) missedFiftyReps++;
+      if (!r.repeatedInOneSitting) missedSingleSitting++;
+      if (!r.reviewPortion) missedReview++;
+    }
+    const sessionDate = opts?.sessionDate;
+    const sessionRow = sessionDate
+      ? att.find((a) => a.sessionDate === sessionDate)
+      : att.find((a) => a.status === AttendanceStatus.PRESENT) ?? att[0];
+    const attendedMajlis = sessionRow
+      ? sessionRow.status === AttendanceStatus.PRESENT
+      : att.some((a) => a.status === AttendanceStatus.PRESENT);
     let existing = await this.weeklyReports.findOne({
       where: { studentId, weekStartDate },
     });
     const wasNew = !existing;
     const payload = {
       studentId,
-      groupId: membership?.groupId ?? null,
+      groupId,
       weekStartDate,
       weekEndDate,
       dailyReportsSubmitted: dailies.length,
@@ -1484,6 +1536,15 @@ export class DomainService {
         dailyReportIds: dailies.map((d) => d.id),
         attendanceIds: att.map((a) => a.id),
         dailyCount: dailies.length,
+        sessionDate: sessionDate ?? sessionRow?.sessionDate ?? null,
+        attendedMajlis,
+        attendedMajlisLabel: attendedMajlis ? 'نعم' : 'لا',
+        missedDailyReports,
+        missedQuota,
+        missedFiftyReps,
+        missedSingleSitting,
+        missedReview,
+        weekDayCount: days.length,
       },
       generatedAt: new Date(),
     };
@@ -1505,23 +1566,147 @@ export class DomainService {
     return saved;
   }
 
-  /** Auto-generate weekly reports for the completed Sat–Fri week (Africa/Algiers). */
+  /**
+   * Teacher saves weekly مجلس attendance for a group, then weekly reports
+   * are generated/updated for each student (PDF «التقرير الأسبوعي» fields).
+   */
+  async saveWeeklyAttendance(
+    actor: User,
+    input: {
+      groupId: string;
+      sessionDate: string;
+      entries: Array<{
+        studentId: string;
+        status: AttendanceStatus;
+        arrivedLate?: boolean;
+        leftEarly?: boolean;
+        note?: string;
+      }>;
+    },
+  ) {
+    if (this.isSupervisor(actor)) {
+      throw new ForbiddenException(
+        'حفظ حضور المجلس الأسبوعي وتوليد التقارير للمعلم فقط',
+      );
+    }
+    this.requireTeacher(actor);
+    const group = await this.getGroup(input.groupId);
+    if (group.teacherId !== actor.id) {
+      throw new ForbiddenException('هذه المجموعة ليست لك');
+    }
+    if (!input.entries?.length) {
+      throw new BadRequestException('لا سجلات حضور');
+    }
+    const attendanceRows = [];
+    for (const entry of input.entries) {
+      const saved = await this.recordAttendance(actor, {
+        studentId: entry.studentId,
+        groupId: input.groupId,
+        sessionDate: input.sessionDate,
+        status: entry.status,
+        arrivedLate: entry.arrivedLate,
+        leftEarly: entry.leftEarly,
+        note: entry.note,
+      });
+      attendanceRows.push(saved);
+    }
+    const { weekStart, weekEnd } = this.weekBoundsForDate(input.sessionDate);
+    const reports = [];
+    for (const entry of input.entries) {
+      const saved = await this.generateWeeklyReport(
+        actor,
+        entry.studentId,
+        weekStart,
+        weekEnd,
+        {
+          silent: true,
+          sessionDate: input.sessionDate,
+          groupId: input.groupId,
+        },
+      );
+      reports.push(saved);
+      await this.notify(
+        entry.studentId,
+        'weekly_report',
+        'تقريرك الأسبوعي جاهز',
+        `بعد مجلس التسميع · ${weekStart} — ${weekEnd}`,
+        { weeklyReportId: saved.id, groupId: input.groupId },
+      );
+    }
+    await this.notify(
+      actor.id,
+      'weekly_report_staff',
+      'تقارير أسبوعية بعد الحضور',
+      `تم توليد/تحديث ${reports.length} تقريراً لأسبوع ${weekStart}`,
+      {
+        groupId: input.groupId,
+        sessionDate: input.sessionDate,
+        weekStart,
+        weekEnd,
+        count: reports.length,
+      },
+    );
+    await this.auditLog(
+      actor.id,
+      'attendance.weekly_save',
+      'group',
+      input.groupId,
+      null,
+      {
+        sessionDate: input.sessionDate,
+        weekStart,
+        weekEnd,
+        attendanceCount: attendanceRows.length,
+        weeklyReportCount: reports.length,
+      },
+    );
+    return {
+      sessionDate: input.sessionDate,
+      weekStart,
+      weekEnd,
+      attendance: attendanceRows,
+      weeklyReports: reports.map((w) => this.formatWeekly(w, 'detailed')),
+      generated: reports.length,
+    };
+  }
+
+  /**
+   * Fallback only: previous Sat–Fri week, and only for students who already
+   * have weekly attendance saved that week but still lack a weekly report.
+   */
   async autoGenerateWeeklyReports(timezone = 'Africa/Algiers') {
     const { weekStart, weekEnd } = this.previousWeekBounds(timezone);
     const members = await this.memberships.find({ where: { leftAt: IsNull() } });
     const studentIds = [...new Set(members.map((m) => m.userId))];
     let created = 0;
+    let skippedNoAttendance = 0;
     for (const studentId of studentIds) {
       const existing = await this.weeklyReports.findOne({
         where: { studentId, weekStartDate: weekStart },
       });
       if (existing) continue;
+      const membership = members.find((m) => m.userId === studentId);
+      if (!membership?.groupId) {
+        skippedNoAttendance++;
+        continue;
+      }
+      const hasAttendance = await this.attendance
+        .createQueryBuilder('a')
+        .where('a.studentId = :studentId', { studentId })
+        .andWhere('a.groupId = :groupId', { groupId: membership.groupId })
+        .andWhere('a.sessionDate >= :start', { start: weekStart })
+        .andWhere('a.sessionDate <= :end', { end: weekEnd })
+        .getCount();
+      if (!hasAttendance) {
+        skippedNoAttendance++;
+        continue;
+      }
       const saved = await this.generateWeeklyReport(
         null,
         studentId,
         weekStart,
         weekEnd,
-        { silent: true },
+        { silent: true, groupId: membership.groupId },
       );
       created++;
       await this.notify(
@@ -1531,23 +1716,44 @@ export class DomainService {
         `الأسبوع ${weekStart} — ${weekEnd}`,
         { weeklyReportId: saved.id },
       );
-      const membership = members.find((m) => m.userId === studentId);
-      if (membership?.groupId) {
-        const group = await this.groups.findOne({
-          where: { id: membership.groupId },
-        });
-        if (group?.teacherId) {
-          await this.notify(
-            group.teacherId,
-            'weekly_report_staff',
-            'تقرير أسبوعي تلقائي',
-            `تقرير أسبوعي للطالب جاهز (${weekStart})`,
-            { weeklyReportId: saved.id, studentId },
-          );
-        }
+      const group = await this.groups.findOne({
+        where: { id: membership.groupId },
+      });
+      if (group?.teacherId) {
+        await this.notify(
+          group.teacherId,
+          'weekly_report_staff',
+          'تقرير أسبوعي (احتياطي)',
+          `تقرير أسبوعي للطالب جاهز (${weekStart})`,
+          { weeklyReportId: saved.id, studentId },
+        );
       }
     }
-    return { weekStart, weekEnd, created };
+    return { weekStart, weekEnd, created, skippedNoAttendance };
+  }
+
+  /** Sat–Fri week containing `isoDate` (Africa/Algiers program week). */
+  private weekBoundsForDate(isoDate: string) {
+    const d = new Date(`${isoDate}T12:00:00Z`);
+    const utcDay = d.getUTCDay(); // 0=Sun … 6=Sat
+    const offsetFromSat = utcDay === 6 ? 0 : utcDay + 1;
+    const sat = new Date(d);
+    sat.setUTCDate(d.getUTCDate() - offsetFromSat);
+    const fri = new Date(sat);
+    fri.setUTCDate(sat.getUTCDate() + 6);
+    const iso = (x: Date) => x.toISOString().slice(0, 10);
+    return { weekStart: iso(sat), weekEnd: iso(fri) };
+  }
+
+  private eachDateInclusive(start: string, end: string): string[] {
+    const out: string[] = [];
+    const d = new Date(`${start}T12:00:00Z`);
+    const last = new Date(`${end}T12:00:00Z`);
+    while (d.getTime() <= last.getTime()) {
+      out.push(d.toISOString().slice(0, 10));
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return out;
   }
 
   private previousWeekBounds(timezone: string) {

@@ -7,28 +7,32 @@ class Atmosphere extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [Brand.paper, Brand.mist, Brand.mistDeep],
+    return ColoredBox(
+      color: Brand.mist,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [Brand.paper, Brand.mist, Brand.mistDeep],
+          ),
         ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -50,
-            left: -30,
-            child: _blob(Brand.leaf.withValues(alpha: 0.16), 160),
-          ),
-          Positioned(
-            bottom: -40,
-            right: -20,
-            child: _blob(Brand.gold.withValues(alpha: 0.14), 140),
-          ),
-          child,
-        ],
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned(
+              top: -50,
+              left: -30,
+              child: _blob(Brand.leaf.withValues(alpha: 0.16), 160),
+            ),
+            Positioned(
+              bottom: -40,
+              right: -20,
+              child: _blob(Brand.gold.withValues(alpha: 0.14), 140),
+            ),
+            child,
+          ],
+        ),
       ),
     );
   }

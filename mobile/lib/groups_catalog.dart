@@ -628,8 +628,8 @@ class _WeeklyReportsPageState extends State<WeeklyReportsPage> {
                     SoftPanel(
                       child: Text(
                         detailed
-                            ? 'عرض تفصيلي للتقارير الأسبوعية المولَّدة تلقائياً'
-                            : 'عرض موجز — أيام التقارير والقسط والحضور',
+                            ? 'التقرير الأسبوعي التفصيلي — بعد حفظ حضور مجلس التسميع'
+                            : 'التقرير الأسبوعي الموجز — اسم الطالب · حضور المجلس · عدّادات «لم …»',
                         style: ui(size: 13, color: Brand.muted),
                       ),
                     ),
@@ -638,20 +638,22 @@ class _WeeklyReportsPageState extends State<WeeklyReportsPage> {
                       const EmptyState(
                         icon: Icons.insights_outlined,
                         title: 'لا تقارير أسبوعية بعد',
-                        subtitle: 'تُولَّد تلقائياً بعد انتهاء كل أسبوع',
+                        subtitle: 'تُولَّد بعد أن يحفظ المعلم حضور المجلس الأسبوعي',
                       )
                     else
                       ...items.map((raw) {
                         final w = Map<String, dynamic>.from(raw as Map);
+                        final attended = w['attendedMajlisLabel'] ??
+                            ((w['attendedMajlis'] == true || (w['presentSessions'] as num?)?.toInt() == 1)
+                                ? 'نعم'
+                                : 'لا');
                         return SoftPanel(
                           margin: const EdgeInsets.only(bottom: 8),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                w['studentName'] != null
-                                    ? '${w['studentName']}'
-                                    : 'طالب',
+                                'اسم الطالب: ${w['studentName'] ?? '—'}',
                                 style: ui(weight: FontWeight.w700),
                               ),
                               Text(
@@ -661,21 +663,21 @@ class _WeeklyReportsPageState extends State<WeeklyReportsPage> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'تقارير يومية: ${w['dailyReportsSubmitted']} · '
-                                'أيام القسط: ${w['quotaDaysMet']} · '
-                                '50 تكرار: ${w['fiftyRepsDaysMet']}',
-                                style: ui(size: 13),
+                                'حضرت مجلس التسميع: $attended',
+                                style: ui(size: 14, weight: FontWeight.w700),
                               ),
-                              Text(
-                                'حضور: ${w['presentSessions']} · '
-                                'بعذر: ${w['excusedAbsences']} · '
-                                'بلا عذر: ${w['unexcusedAbsences']}',
-                                style: ui(size: 13),
-                              ),
-                              if (detailed && w['summaryJson'] != null) ...[
-                                const SizedBox(height: 6),
+                              const SizedBox(height: 8),
+                              Text('عدد المرات التي فيها لم:', style: ui(size: 13, weight: FontWeight.w700, color: Brand.muted)),
+                              const SizedBox(height: 4),
+                              Text('أرسل التقرير: ${w['missedDailyReports'] ?? '—'}', style: ui(size: 13)),
+                              Text('أحفظ القسط اليومي: ${w['missedQuota'] ?? '—'}', style: ui(size: 13)),
+                              Text('أكرر 50 مرة: ${w['missedFiftyReps'] ?? '—'}', style: ui(size: 13)),
+                              Text('أكرر في مجلس واحد: ${w['missedSingleSitting'] ?? '—'}', style: ui(size: 13)),
+                              Text('آتِ بورد المراجعة: ${w['missedReview'] ?? '—'}', style: ui(size: 13)),
+                              if (detailed) ...[
+                                const SizedBox(height: 8),
                                 Text(
-                                  'تفاصيل إضافية متاحة في الملخص',
+                                  'أيام الإرسال: ${w['dailyReportsSubmitted']} · القسط: ${w['quotaDaysMet']} · 50: ${w['fiftyRepsDaysMet']}',
                                   style: ui(size: 12, color: Brand.muted),
                                 ),
                               ],

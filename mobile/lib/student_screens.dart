@@ -597,34 +597,49 @@ class _StudentProgressState extends State<StudentProgress> {
             const EmptyState(
               icon: Icons.calendar_month_outlined,
               title: 'لا تقارير أسبوعية بانتظار التأكيد',
-              subtitle: 'عندما يولّد المعلم/المشرف تقريراً سيظهر هنا',
+              subtitle: 'تظهر بعد أن يحفظ المعلم حضور المجلس الأسبوعي',
             )
           else
-            ...pendingWeekly.map((w) => SoftPanel(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${w['weekStartDate']} → ${w['weekEndDate']}',
-                          style: ui(weight: FontWeight.w600),
-                        ),
-                      ),
-                      FilledButton(
+            ...pendingWeekly.map((w) {
+              final attended = w['attendedMajlisLabel'] ??
+                  (w['attendedMajlis'] == true ? 'نعم' : 'لا');
+              return SoftPanel(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${w['weekStartDate']} → ${w['weekEndDate']}',
+                      style: ui(weight: FontWeight.w700),
+                    ),
+                    Text('حضرت مجلس التسميع: $attended', style: ui(size: 13)),
+                    Text(
+                      'لم أرسل: ${w['missedDailyReports'] ?? '—'} · '
+                      'لم أحفظ القسط: ${w['missedQuota'] ?? '—'} · '
+                      'لم أكرر 50: ${w['missedFiftyReps'] ?? '—'}',
+                      style: ui(size: 12, color: Brand.muted),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton(
                         onPressed: () async {
                           try {
                             await widget.api.patch('/weekly-reports/${w['id']}/confirm', {});
+                            if (!mounted) return;
                             showToast(context, 'تم تأكيد التقرير الأسبوعي');
                             await _load();
                           } catch (e) {
-                            showToast(context, e.toString(), error: true);
+                            if (mounted) showToast(context, e.toString(), error: true);
                           }
                         },
                         child: const Text('تأكيد'),
                       ),
-                    ],
-                  ),
-                )),
+                    ),
+                  ],
+                ),
+              );
+            }),
           const SizedBox(height: 8),
           const SectionTitle('صندوق الملاحظات'),
           if (notes.isEmpty)

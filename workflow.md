@@ -13,7 +13,7 @@ Living product map of what exists today.
 - Self-host path: no SaaS seat limits; JWT + bcrypt auth
 - Try Live ports (cloud): API `43124`, admin `43123`, Flutter web `43125`
 - Public GitHub: https://github.com/fayed23/Ertaki-Project
-- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.6-apk`
+- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.7-apk`
 - Configurable API base: `--dart-define=API_BASE_URL=...` + in-app field on login (persisted); cleartext HTTP allowed for LAN testing
 - Docs: `requirements.md`, `docs/decisions.md` (store), `docs/ertaki-portable-production-guide.md`, root `README.md`
 
@@ -74,8 +74,10 @@ Living product map of what exists today.
 
 ## Weekly report
 
-- Auto-generated after each week (cron Sat 00:15 Africa/Algiers) from daily + attendance
-- **Teacher only:** brief + detailed list/detail (`GET /weekly-reports?mode=…`); staff notify on auto-gen
+- **Primary trigger:** teacher `POST /attendance/weekly` after saving مجلس التسميع attendance → generate/update each student’s weekly report for that Sat–Fri week
+- PDF «التقرير الأسبوعي» fields: اسم الطالب · حضرت مجلس التسميع نعم/لا · عدّادات لم أرسل التقرير / لم أحفظ القسط / لم أكرر 50 / لم أكرر في مجلس واحد / لم آتِ بورد المراجعة (from that week’s dailies + attendance)
+- Cron Sat 00:15 is **fallback only** (students who already have weekly attendance that week but still lack a report)
+- **Teacher only:** brief + detailed; staff notify after attendance save
 - **Supervisor: no** weekly list/detail/notifications
 - Student confirmation (`PATCH …/confirm`) on progress screen
 
@@ -83,7 +85,7 @@ Living product map of what exists today.
 
 ## Attendance & excuses
 
-- Teacher marks weekly مجلس attendance (UI copy: **أسبوعي** / حفظ الحضور الأسبوعي — not daily)
+- Teacher marks weekly مجلس attendance (UI copy: **أسبوعي** / حفظ الحضور الأسبوعي — not daily); save via `/attendance/weekly` also builds weekly reports
 - Student absence excuse; staff review
 - Unexcused absence can create تقصير per policy
 - Staff (+ student) notified on excused/unexcused recording
@@ -120,17 +122,19 @@ Living product map of what exists today.
 ## Dashboards & UX
 
 - **Student:** first-run groups catalog (locked shell) → home CTA report; notes; progress + weekly confirm
-- **Teacher:** category hub home (مجموعات، طلبة، طلبات، حضور، تقارير، إنشاء، إشعارات); students **only under group headers**; group brief/detailed + WhatsApp; weekly reports; attendance weekly copy
+- **Teacher:** category hub home (مجموعات، طلبة، طلبات، حضور، تقارير، إنشاء، إشعارات); students **nested inside** each group card (not sibling top-level cards); light brand Atmosphere on all category pages (no black voids); group brief/detailed + WhatsApp; weekly PDF-format reports; attendance weekly copy
 - **Supervisor Flutter:** category hub (تفعيل، انضمام، مجموعات، دليل، إشعارات); **no** daily/weekly report screens
 - **Supervisor admin (Next):** تفعيل معلمين · joins · groups (approve) · directory · policies — **no** «تقارير اليوم» / weekly tabs
+- **System Back:** nested navigators + PopScope — pops in-app routes first; non-home tab → home; home → confirm exit
+- **Swipe:** horizontal PageView between bottom-nav destinations for all roles, synced with NavigationBar
 
 ---
 
 ## Bottom navigation
 
-- Student: الرئيسية / مجموعتي / تقرير / تقدّمي (catalog-only shell until membership)
-- Teacher: الرئيسية / طلبة / حضور / إشعارات
-- Supervisor: الرئيسية / طلبات / مجموعات / إشعارات
+- Student: الرئيسية / مجموعتي / تقرير / تقدّمي (catalog-only shell until membership) — swipeable
+- Teacher: الرئيسية / طلبة / حضور / إشعارات — swipeable
+- Supervisor: الرئيسية / طلبات / مجموعات / إشعارات — swipeable
 
 ---
 

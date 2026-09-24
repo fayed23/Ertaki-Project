@@ -40,3 +40,14 @@ Teacher create-group form includes WhatsApp group URL; shown on group **brief** 
 ## Teacher / supervisor home
 Main home is a **category hub** (icon buttons) that opens dedicated views — not dense stacked lists.
 Teacher students list: students appear **only under their group sections** (no flat all-students list).
+
+
+## Weekly report generation
+- Generated **after the teacher saves weekly مجلس attendance** (`POST /attendance/weekly`), not on cron alone.
+- Field semantics match PDF «التقرير الأسبوعي»: attended yes/no + miss counts for report/quota/50/single-sitting/review from that week’s dailies.
+- Cron Saturday is fallback only when attendance already exists for the week.
+- Supervisors still have **no** access to daily/weekly report content.
+
+## Android navigation
+- System Back pops the current in-app route; only exits (with confirm) on role home root.
+- Bottom destinations are swipeable via PageView and stay in sync with the NavigationBar.
