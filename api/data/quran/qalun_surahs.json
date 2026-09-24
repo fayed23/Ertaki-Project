@@ -1,0 +1,811 @@
+{
+  "riwayah": "Qalūn ‘an Nāfi‘",
+  "riwayahAr": "قالون عن نافع",
+  "totalAyahs": 6214,
+  "source": {
+    "primary": "quran-center/quran-meta SurahList (src/lists/QalunLists.ts)",
+    "url": "https://github.com/quran-center/quran-meta",
+    "upstreamFontData": "KFGQPC QalounData_v2-1.json (King Fahd Complex Qalūn Uthmanic font metadata)",
+    "notes": "Ayah counts follow Madinan (Nāfi‘) counting used by Qalūn — total 6214, not Hafs/Kufan 6236."
+  },
+  "surahs": [
+    {
+      "number": 1,
+      "nameAr": "الفَاتِحة",
+      "ayahCount": 7,
+      "revelationOrder": 5,
+      "meccan": true
+    },
+    {
+      "number": 2,
+      "nameAr": "البَقَرَة",
+      "ayahCount": 285,
+      "revelationOrder": 87,
+      "meccan": false
+    },
+    {
+      "number": 3,
+      "nameAr": "آل عِمران",
+      "ayahCount": 200,
+      "revelationOrder": 89,
+      "meccan": false
+    },
+    {
+      "number": 4,
+      "nameAr": "النِّسَاء",
+      "ayahCount": 175,
+      "revelationOrder": 92,
+      "meccan": false
+    },
+    {
+      "number": 5,
+      "nameAr": "المَائدة",
+      "ayahCount": 122,
+      "revelationOrder": 112,
+      "meccan": false
+    },
+    {
+      "number": 6,
+      "nameAr": "الأنعَام",
+      "ayahCount": 167,
+      "revelationOrder": 55,
+      "meccan": true
+    },
+    {
+      "number": 7,
+      "nameAr": "الأعرَاف",
+      "ayahCount": 206,
+      "revelationOrder": 39,
+      "meccan": true
+    },
+    {
+      "number": 8,
+      "nameAr": "الأنفَال",
+      "ayahCount": 76,
+      "revelationOrder": 88,
+      "meccan": false
+    },
+    {
+      "number": 9,
+      "nameAr": "التوبَة",
+      "ayahCount": 130,
+      "revelationOrder": 113,
+      "meccan": false
+    },
+    {
+      "number": 10,
+      "nameAr": "يُونس",
+      "ayahCount": 109,
+      "revelationOrder": 51,
+      "meccan": true
+    },
+    {
+      "number": 11,
+      "nameAr": "هُود",
+      "ayahCount": 121,
+      "revelationOrder": 52,
+      "meccan": true
+    },
+    {
+      "number": 12,
+      "nameAr": "يُوسُف",
+      "ayahCount": 111,
+      "revelationOrder": 53,
+      "meccan": true
+    },
+    {
+      "number": 13,
+      "nameAr": "الرَّعد",
+      "ayahCount": 44,
+      "revelationOrder": 96,
+      "meccan": false
+    },
+    {
+      "number": 14,
+      "nameAr": "إبراهِيم",
+      "ayahCount": 54,
+      "revelationOrder": 72,
+      "meccan": true
+    },
+    {
+      "number": 15,
+      "nameAr": "الحِجر",
+      "ayahCount": 99,
+      "revelationOrder": 54,
+      "meccan": true
+    },
+    {
+      "number": 16,
+      "nameAr": "النَّحل",
+      "ayahCount": 128,
+      "revelationOrder": 70,
+      "meccan": true
+    },
+    {
+      "number": 17,
+      "nameAr": "الإسرَاء",
+      "ayahCount": 110,
+      "revelationOrder": 50,
+      "meccan": true
+    },
+    {
+      "number": 18,
+      "nameAr": "الكَهف",
+      "ayahCount": 105,
+      "revelationOrder": 69,
+      "meccan": true
+    },
+    {
+      "number": 19,
+      "nameAr": "مَريَم",
+      "ayahCount": 99,
+      "revelationOrder": 44,
+      "meccan": true
+    },
+    {
+      "number": 20,
+      "nameAr": "طه",
+      "ayahCount": 134,
+      "revelationOrder": 45,
+      "meccan": true
+    },
+    {
+      "number": 21,
+      "nameAr": "الأنبيَاء",
+      "ayahCount": 111,
+      "revelationOrder": 73,
+      "meccan": true
+    },
+    {
+      "number": 22,
+      "nameAr": "الحج",
+      "ayahCount": 76,
+      "revelationOrder": 103,
+      "meccan": false
+    },
+    {
+      "number": 23,
+      "nameAr": "المؤمنُون",
+      "ayahCount": 119,
+      "revelationOrder": 74,
+      "meccan": true
+    },
+    {
+      "number": 24,
+      "nameAr": "النور",
+      "ayahCount": 62,
+      "revelationOrder": 102,
+      "meccan": false
+    },
+    {
+      "number": 25,
+      "nameAr": "الفُرقَان",
+      "ayahCount": 77,
+      "revelationOrder": 42,
+      "meccan": true
+    },
+    {
+      "number": 26,
+      "nameAr": "الشعراء",
+      "ayahCount": 226,
+      "revelationOrder": 47,
+      "meccan": true
+    },
+    {
+      "number": 27,
+      "nameAr": "النَّمل",
+      "ayahCount": 95,
+      "revelationOrder": 48,
+      "meccan": true
+    },
+    {
+      "number": 28,
+      "nameAr": "القَصَص",
+      "ayahCount": 88,
+      "revelationOrder": 49,
+      "meccan": true
+    },
+    {
+      "number": 29,
+      "nameAr": "العَنكبُوت",
+      "ayahCount": 69,
+      "revelationOrder": 85,
+      "meccan": true
+    },
+    {
+      "number": 30,
+      "nameAr": "الرُّوم",
+      "ayahCount": 59,
+      "revelationOrder": 84,
+      "meccan": true
+    },
+    {
+      "number": 31,
+      "nameAr": "لُقمَان",
+      "ayahCount": 33,
+      "revelationOrder": 57,
+      "meccan": true
+    },
+    {
+      "number": 32,
+      "nameAr": "السَّجدة",
+      "ayahCount": 30,
+      "revelationOrder": 75,
+      "meccan": true
+    },
+    {
+      "number": 33,
+      "nameAr": "الأحزَاب",
+      "ayahCount": 73,
+      "revelationOrder": 90,
+      "meccan": false
+    },
+    {
+      "number": 34,
+      "nameAr": "سَبإ",
+      "ayahCount": 54,
+      "revelationOrder": 58,
+      "meccan": true
+    },
+    {
+      "number": 35,
+      "nameAr": "فَاطِر",
+      "ayahCount": 46,
+      "revelationOrder": 43,
+      "meccan": true
+    },
+    {
+      "number": 36,
+      "nameAr": "يسٓ",
+      "ayahCount": 82,
+      "revelationOrder": 41,
+      "meccan": true
+    },
+    {
+      "number": 37,
+      "nameAr": "الصَّافَات",
+      "ayahCount": 182,
+      "revelationOrder": 56,
+      "meccan": true
+    },
+    {
+      "number": 38,
+      "nameAr": "صٓ",
+      "ayahCount": 86,
+      "revelationOrder": 38,
+      "meccan": true
+    },
+    {
+      "number": 39,
+      "nameAr": "الزُّمَر",
+      "ayahCount": 72,
+      "revelationOrder": 59,
+      "meccan": true
+    },
+    {
+      "number": 40,
+      "nameAr": "غَافِر",
+      "ayahCount": 84,
+      "revelationOrder": 60,
+      "meccan": true
+    },
+    {
+      "number": 41,
+      "nameAr": "فُصِّلَت",
+      "ayahCount": 53,
+      "revelationOrder": 61,
+      "meccan": true
+    },
+    {
+      "number": 42,
+      "nameAr": "الشُّوري",
+      "ayahCount": 50,
+      "revelationOrder": 62,
+      "meccan": true
+    },
+    {
+      "number": 43,
+      "nameAr": "الزُّخرُف",
+      "ayahCount": 89,
+      "revelationOrder": 63,
+      "meccan": true
+    },
+    {
+      "number": 44,
+      "nameAr": "الدُّخان",
+      "ayahCount": 56,
+      "revelationOrder": 64,
+      "meccan": true
+    },
+    {
+      "number": 45,
+      "nameAr": "الجاثِية",
+      "ayahCount": 36,
+      "revelationOrder": 65,
+      "meccan": true
+    },
+    {
+      "number": 46,
+      "nameAr": "الأحقَاف",
+      "ayahCount": 34,
+      "revelationOrder": 66,
+      "meccan": true
+    },
+    {
+      "number": 47,
+      "nameAr": "مُحمد",
+      "ayahCount": 39,
+      "revelationOrder": 95,
+      "meccan": false
+    },
+    {
+      "number": 48,
+      "nameAr": "الفَتح",
+      "ayahCount": 29,
+      "revelationOrder": 111,
+      "meccan": false
+    },
+    {
+      "number": 49,
+      "nameAr": "الحُجُرَات",
+      "ayahCount": 18,
+      "revelationOrder": 106,
+      "meccan": false
+    },
+    {
+      "number": 50,
+      "nameAr": "قٓ",
+      "ayahCount": 45,
+      "revelationOrder": 34,
+      "meccan": true
+    },
+    {
+      "number": 51,
+      "nameAr": "الذَّاريَات",
+      "ayahCount": 60,
+      "revelationOrder": 67,
+      "meccan": true
+    },
+    {
+      "number": 52,
+      "nameAr": "الطُّور",
+      "ayahCount": 47,
+      "revelationOrder": 76,
+      "meccan": true
+    },
+    {
+      "number": 53,
+      "nameAr": "النَّجم",
+      "ayahCount": 61,
+      "revelationOrder": 23,
+      "meccan": true
+    },
+    {
+      "number": 54,
+      "nameAr": "القَمَر",
+      "ayahCount": 55,
+      "revelationOrder": 37,
+      "meccan": true
+    },
+    {
+      "number": 55,
+      "nameAr": "الرَّحمٰن",
+      "ayahCount": 77,
+      "revelationOrder": 97,
+      "meccan": false
+    },
+    {
+      "number": 56,
+      "nameAr": "الوَاقِعة",
+      "ayahCount": 99,
+      "revelationOrder": 46,
+      "meccan": true
+    },
+    {
+      "number": 57,
+      "nameAr": "الحدِيد",
+      "ayahCount": 28,
+      "revelationOrder": 94,
+      "meccan": false
+    },
+    {
+      "number": 58,
+      "nameAr": "المُجَادلة",
+      "ayahCount": 21,
+      "revelationOrder": 105,
+      "meccan": false
+    },
+    {
+      "number": 59,
+      "nameAr": "الحَشر",
+      "ayahCount": 24,
+      "revelationOrder": 101,
+      "meccan": false
+    },
+    {
+      "number": 60,
+      "nameAr": "المُمتَحنَة",
+      "ayahCount": 13,
+      "revelationOrder": 91,
+      "meccan": false
+    },
+    {
+      "number": 61,
+      "nameAr": "الصَّف",
+      "ayahCount": 14,
+      "revelationOrder": 109,
+      "meccan": false
+    },
+    {
+      "number": 62,
+      "nameAr": "الجُمعَة",
+      "ayahCount": 11,
+      "revelationOrder": 110,
+      "meccan": false
+    },
+    {
+      "number": 63,
+      "nameAr": "المُنَافِقُونَ",
+      "ayahCount": 11,
+      "revelationOrder": 104,
+      "meccan": false
+    },
+    {
+      "number": 64,
+      "nameAr": "التغَابُن",
+      "ayahCount": 18,
+      "revelationOrder": 108,
+      "meccan": false
+    },
+    {
+      "number": 65,
+      "nameAr": "الطَّلَاق",
+      "ayahCount": 12,
+      "revelationOrder": 99,
+      "meccan": false
+    },
+    {
+      "number": 66,
+      "nameAr": "التَّحرِيم",
+      "ayahCount": 12,
+      "revelationOrder": 107,
+      "meccan": false
+    },
+    {
+      "number": 67,
+      "nameAr": "المُلك",
+      "ayahCount": 31,
+      "revelationOrder": 77,
+      "meccan": true
+    },
+    {
+      "number": 68,
+      "nameAr": "القَلَم",
+      "ayahCount": 52,
+      "revelationOrder": 2,
+      "meccan": true
+    },
+    {
+      "number": 69,
+      "nameAr": "الحَاقة",
+      "ayahCount": 52,
+      "revelationOrder": 78,
+      "meccan": true
+    },
+    {
+      "number": 70,
+      "nameAr": "المَعَارج",
+      "ayahCount": 44,
+      "revelationOrder": 79,
+      "meccan": true
+    },
+    {
+      "number": 71,
+      "nameAr": "نُوح",
+      "ayahCount": 30,
+      "revelationOrder": 71,
+      "meccan": true
+    },
+    {
+      "number": 72,
+      "nameAr": "الجِن",
+      "ayahCount": 28,
+      "revelationOrder": 40,
+      "meccan": true
+    },
+    {
+      "number": 73,
+      "nameAr": "المُزمل",
+      "ayahCount": 18,
+      "revelationOrder": 3,
+      "meccan": true
+    },
+    {
+      "number": 74,
+      "nameAr": "المُدثر",
+      "ayahCount": 55,
+      "revelationOrder": 4,
+      "meccan": true
+    },
+    {
+      "number": 75,
+      "nameAr": "القِيَامة",
+      "ayahCount": 39,
+      "revelationOrder": 31,
+      "meccan": true
+    },
+    {
+      "number": 76,
+      "nameAr": "الإنسَان",
+      "ayahCount": 31,
+      "revelationOrder": 98,
+      "meccan": false
+    },
+    {
+      "number": 77,
+      "nameAr": "المُرسَلات",
+      "ayahCount": 50,
+      "revelationOrder": 33,
+      "meccan": true
+    },
+    {
+      "number": 78,
+      "nameAr": "النَّبَإ",
+      "ayahCount": 40,
+      "revelationOrder": 80,
+      "meccan": true
+    },
+    {
+      "number": 79,
+      "nameAr": "النَّازعَات",
+      "ayahCount": 45,
+      "revelationOrder": 81,
+      "meccan": true
+    },
+    {
+      "number": 80,
+      "nameAr": "عَبَسَ",
+      "ayahCount": 42,
+      "revelationOrder": 24,
+      "meccan": true
+    },
+    {
+      "number": 81,
+      "nameAr": "التَّكوير",
+      "ayahCount": 29,
+      "revelationOrder": 7,
+      "meccan": true
+    },
+    {
+      "number": 82,
+      "nameAr": "الانفِطَار",
+      "ayahCount": 19,
+      "revelationOrder": 82,
+      "meccan": true
+    },
+    {
+      "number": 83,
+      "nameAr": "المُطَففين",
+      "ayahCount": 36,
+      "revelationOrder": 86,
+      "meccan": true
+    },
+    {
+      "number": 84,
+      "nameAr": "الانشِقَاق",
+      "ayahCount": 25,
+      "revelationOrder": 83,
+      "meccan": true
+    },
+    {
+      "number": 85,
+      "nameAr": "البُرُوج",
+      "ayahCount": 22,
+      "revelationOrder": 27,
+      "meccan": true
+    },
+    {
+      "number": 86,
+      "nameAr": "الطَّارق",
+      "ayahCount": 17,
+      "revelationOrder": 36,
+      "meccan": true
+    },
+    {
+      "number": 87,
+      "nameAr": "الأعلى",
+      "ayahCount": 19,
+      "revelationOrder": 8,
+      "meccan": true
+    },
+    {
+      "number": 88,
+      "nameAr": "الغَاشِية",
+      "ayahCount": 26,
+      "revelationOrder": 68,
+      "meccan": true
+    },
+    {
+      "number": 89,
+      "nameAr": "الفَجر",
+      "ayahCount": 32,
+      "revelationOrder": 10,
+      "meccan": true
+    },
+    {
+      "number": 90,
+      "nameAr": "البَلَد",
+      "ayahCount": 20,
+      "revelationOrder": 35,
+      "meccan": true
+    },
+    {
+      "number": 91,
+      "nameAr": "الشَّمس",
+      "ayahCount": 15,
+      "revelationOrder": 26,
+      "meccan": true
+    },
+    {
+      "number": 92,
+      "nameAr": "اللَّيل",
+      "ayahCount": 21,
+      "revelationOrder": 9,
+      "meccan": true
+    },
+    {
+      "number": 93,
+      "nameAr": "الضُّحى",
+      "ayahCount": 11,
+      "revelationOrder": 11,
+      "meccan": true
+    },
+    {
+      "number": 94,
+      "nameAr": "الشَّرح",
+      "ayahCount": 8,
+      "revelationOrder": 12,
+      "meccan": true
+    },
+    {
+      "number": 95,
+      "nameAr": "التِّين",
+      "ayahCount": 8,
+      "revelationOrder": 28,
+      "meccan": true
+    },
+    {
+      "number": 96,
+      "nameAr": "العَلَق",
+      "ayahCount": 20,
+      "revelationOrder": 1,
+      "meccan": true
+    },
+    {
+      "number": 97,
+      "nameAr": "القَدر",
+      "ayahCount": 5,
+      "revelationOrder": 25,
+      "meccan": true
+    },
+    {
+      "number": 98,
+      "nameAr": "البَينَة",
+      "ayahCount": 8,
+      "revelationOrder": 100,
+      "meccan": false
+    },
+    {
+      "number": 99,
+      "nameAr": "الزَّلزَلة",
+      "ayahCount": 9,
+      "revelationOrder": 93,
+      "meccan": false
+    },
+    {
+      "number": 100,
+      "nameAr": "العَاديَات",
+      "ayahCount": 11,
+      "revelationOrder": 14,
+      "meccan": true
+    },
+    {
+      "number": 101,
+      "nameAr": "القَارعَة",
+      "ayahCount": 10,
+      "revelationOrder": 30,
+      "meccan": true
+    },
+    {
+      "number": 102,
+      "nameAr": "التَّكاثُر",
+      "ayahCount": 8,
+      "revelationOrder": 16,
+      "meccan": true
+    },
+    {
+      "number": 103,
+      "nameAr": "العَصر",
+      "ayahCount": 3,
+      "revelationOrder": 13,
+      "meccan": true
+    },
+    {
+      "number": 104,
+      "nameAr": "الهُمَزة",
+      "ayahCount": 9,
+      "revelationOrder": 32,
+      "meccan": true
+    },
+    {
+      "number": 105,
+      "nameAr": "الفِيل",
+      "ayahCount": 5,
+      "revelationOrder": 19,
+      "meccan": true
+    },
+    {
+      "number": 106,
+      "nameAr": "قُرَيش",
+      "ayahCount": 5,
+      "revelationOrder": 29,
+      "meccan": true
+    },
+    {
+      "number": 107,
+      "nameAr": "المَاعُون",
+      "ayahCount": 6,
+      "revelationOrder": 17,
+      "meccan": true
+    },
+    {
+      "number": 108,
+      "nameAr": "الكَوثر",
+      "ayahCount": 3,
+      "revelationOrder": 15,
+      "meccan": true
+    },
+    {
+      "number": 109,
+      "nameAr": "الكافِرون",
+      "ayahCount": 6,
+      "revelationOrder": 18,
+      "meccan": true
+    },
+    {
+      "number": 110,
+      "nameAr": "النَّصر",
+      "ayahCount": 3,
+      "revelationOrder": 114,
+      "meccan": false
+    },
+    {
+      "number": 111,
+      "nameAr": "المَسَد",
+      "ayahCount": 5,
+      "revelationOrder": 6,
+      "meccan": true
+    },
+    {
+      "number": 112,
+      "nameAr": "الإخلَاص",
+      "ayahCount": 4,
+      "revelationOrder": 22,
+      "meccan": true
+    },
+    {
+      "number": 113,
+      "nameAr": "الفَلَق",
+      "ayahCount": 5,
+      "revelationOrder": 20,
+      "meccan": true
+    },
+    {
+      "number": 114,
+      "nameAr": "النَّاس",
+      "ayahCount": 6,
+      "revelationOrder": 21,
+      "meccan": true
+    }
+  ]
+}

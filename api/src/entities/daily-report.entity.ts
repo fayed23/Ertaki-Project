@@ -26,13 +26,28 @@ export class DailyReport {
   @Column({ default: false })
   memorizedQuota: boolean;
 
-  @Column({ type: 'varchar', nullable: true  })
+  /** HH:mm start of memorization session */
+  @Column({ type: 'varchar', nullable: true })
   memorizationFrom: string | null;
 
-  @Column({ type: 'varchar', nullable: true  })
+  /** HH:mm end of memorization session */
+  @Column({ type: 'varchar', nullable: true })
   memorizationTo: string | null;
 
-  @Column({ type: 'varchar', nullable: true  })
+  /** Qalūn surah number 1–114 */
+  @Column({ type: 'int', nullable: true })
+  memorizationSurahNumber: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  memorizationSurahName: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  memorizationAyahFrom: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  memorizationAyahTo: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
   reviewPortion: string | null;
 
   @Column({ type: 'varchar', nullable: true  })

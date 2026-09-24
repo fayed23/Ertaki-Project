@@ -123,100 +123,43 @@ function formatHhMm(minutes: number) {
   return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
 
-function TimeSliderField({
+function ClockTimeField({
   label,
-  minutes,
+  value,
   onChange,
 }: {
   label: string;
-  minutes: number;
-  onChange: (m: number) => void;
+  value: string;
+  onChange: (hhmm: string) => void;
 }) {
   return (
     <div style={{ display: "grid", gap: "0.35rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center" }}>
         <span style={{ fontWeight: 600 }}>{label}</span>
-        <strong dir="ltr" style={{ color: "var(--forest)", fontSize: "1.15rem" }}>
-          {formatHhMm(minutes)}
-        </strong>
+        <input
+          type="time"
+          value={value}
+          onChange={(e) => onChange(e.target.value || "23:59")}
+          aria-label={label}
+          dir="ltr"
+          style={{
+            fontSize: "1.1rem",
+            fontWeight: 700,
+            color: "var(--forest)",
+            padding: "0.45rem 0.65rem",
+            borderRadius: 10,
+            border: "1px solid var(--line)",
+            background: "var(--paper)",
+          }}
+        />
       </div>
-      <input
-        type="range"
-        min={0}
-        max={DAY_MIN}
-        step={TIME_STEP}
-        value={clampMin(minutes)}
-        onChange={(e) => onChange(clampMin(Number(e.target.value)))}
-        aria-label={label}
-        style={{ width: "100%", accentColor: "var(--forest)" }}
-      />
       <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.78rem" }}>
-        شريط تمرير — خطوة {TIME_STEP} دقائق (بدون كتابة يدوية)
+        اختيار بساعة النظام (مثل إنشاء المجموعة في التطبيق)
       </p>
     </div>
   );
 }
 
-function TimeRangeSliderField({
-  title,
-  startMinutes,
-  endMinutes,
-  onChange,
-}: {
-  title: string;
-  startMinutes: number;
-  endMinutes: number;
-  onChange: (start: number, end: number) => void;
-}) {
-  const start = clampMin(startMinutes);
-  const end = Math.max(start, clampMin(endMinutes));
-  return (
-    <div className="panel" style={{ padding: "1rem 1.15rem", display: "grid", gap: "0.85rem" }}>
-      <p style={{ margin: 0, fontWeight: 700 }}>{title}</p>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
-        <div>
-          <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>من</span>
-          <div dir="ltr" style={{ fontWeight: 800, color: "var(--forest)", fontSize: "1.25rem" }}>
-            {formatHhMm(start)}
-          </div>
-        </div>
-        <div style={{ textAlign: "left" }}>
-          <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>إلى</span>
-          <div dir="ltr" style={{ fontWeight: 800, color: "var(--forest)", fontSize: "1.25rem" }}>
-            {formatHhMm(end)}
-          </div>
-        </div>
-      </div>
-      <label className="field" style={{ gap: "0.25rem" }}>
-        <span>البداية</span>
-        <input
-          type="range"
-          min={0}
-          max={DAY_MIN}
-          step={TIME_STEP}
-          value={start}
-          onChange={(e) => {
-            const s = clampMin(Number(e.target.value));
-            onChange(s, Math.max(s, end));
-          }}
-          style={{ width: "100%", accentColor: "var(--forest)" }}
-        />
-      </label>
-      <label className="field" style={{ gap: "0.25rem" }}>
-        <span>النهاية (≥ البداية)</span>
-        <input
-          type="range"
-          min={start}
-          max={DAY_MIN}
-          step={TIME_STEP}
-          value={end}
-          onChange={(e) => onChange(start, clampMin(Number(e.target.value)))}
-          style={{ width: "100%", accentColor: "var(--forest)" }}
-        />
-      </label>
-    </div>
-  );
-}
 
 type DeadlineConfig = {
   id?: string;
@@ -260,8 +203,6 @@ export default function AdminHome() {
   const [directory, setDirectory] = useState<Directory | null>(null);
   const [deadline, setDeadline] = useState<DeadlineConfig | null>(null);
   const [closeMinutes, setCloseMinutes] = useState(23 * 60 + 55);
-  const [demoMemStart, setDemoMemStart] = useState(20 * 60);
-  const [demoMemEnd, setDemoMemEnd] = useState(21 * 60);
   const [tab, setTab] = useState<
     "dash" | "accounts" | "joins" | "groups" | "directory" | "policies"
   >("dash");
@@ -970,12 +911,12 @@ export default function AdminHome() {
             <div className="panel" style={{ padding: "1.15rem", marginBottom: "1rem", display: "grid", gap: "1rem" }}>
               <h3 style={{ margin: 0, fontSize: "1.1rem" }}>وقت إغلاق التقرير اليومي</h3>
               <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.9rem" }}>
-                يُضبط بشريط تمرير (HH:mm) — بدون كتابة رقم الساعة يدوياً
+                يُضبط بساعة النظام (HH:mm) — نفس أسلوب إنشاء المجموعة
               </p>
-              <TimeSliderField
+              <ClockTimeField
                 label="إغلاق النافذة"
-                minutes={closeMinutes}
-                onChange={setCloseMinutes}
+                value={formatHhMm(closeMinutes)}
+                onChange={(hhmm) => setCloseMinutes(parseHhMm(hhmm, 23 * 60 + 59))}
               />
               <button
                 type="button"
@@ -1005,20 +946,6 @@ export default function AdminHome() {
               </button>
             </div>
 
-            <div style={{ marginBottom: "1rem" }}>
-              <p style={{ margin: "0 0 0.5rem", color: "var(--muted)", fontSize: "0.9rem" }}>
-                معاينة نمط شريط النطاق (كما في تقرير الطالب: حفظ من–إلى)
-              </p>
-              <TimeRangeSliderField
-                title="مثال: توقيت الحفظ"
-                startMinutes={demoMemStart}
-                endMinutes={demoMemEnd}
-                onChange={(s, e) => {
-                  setDemoMemStart(s);
-                  setDemoMemEnd(e);
-                }}
-              />
-            </div>
 
             <div className="panel" style={{ marginBottom: "1rem" }}>
               {policies.map((p) => (

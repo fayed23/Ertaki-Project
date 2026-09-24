@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { IsNull, Repository } from 'typeorm';
 import {
   GroupGender,
@@ -955,6 +957,10 @@ export class DomainService {
       memorizedQuota: boolean;
       memorizationFrom?: string;
       memorizationTo?: string;
+      memorizationSurahNumber?: number;
+      memorizationSurahName?: string;
+      memorizationAyahFrom?: number;
+      memorizationAyahTo?: number;
       reviewPortion?: string;
       reviewFrom?: string;
       reviewTo?: string;
@@ -972,6 +978,7 @@ export class DomainService {
     if (existing) {
       throw new BadRequestException('لا يمكن تعديل التقرير بعد الإرسال');
     }
+    const range = this.validateQalunMemorizationRange(input);
     const report = await this.dailyReports.save(
       this.dailyReports.create({
         student: actor,
@@ -980,6 +987,10 @@ export class DomainService {
         memorizedQuota: input.memorizedQuota,
         memorizationFrom: input.memorizationFrom ?? null,
         memorizationTo: input.memorizationTo ?? null,
+        memorizationSurahNumber: range?.surahNumber ?? null,
+        memorizationSurahName: range?.surahName ?? null,
+        memorizationAyahFrom: range?.ayahFrom ?? null,
+        memorizationAyahTo: range?.ayahTo ?? null,
         reviewPortion: input.reviewPortion ?? null,
         reviewFrom: input.reviewFrom ?? null,
         reviewTo: input.reviewTo ?? null,
@@ -1003,6 +1014,71 @@ export class DomainService {
       },
     );
     return this.enrichDailyReport(report);
+  }
+
+  private qalunSurahCounts: Map<number, { nameAr: string; ayahCount: number }> | null =
+    null;
+
+  private loadQalunSurahCounts() {
+    if (this.qalunSurahCounts) return this.qalunSurahCounts;
+    const candidates = [
+      join(process.cwd(), 'data/quran/qalun_surahs.json'),
+      join(__dirname, '../../data/quran/qalun_surahs.json'),
+    ];
+    let raw: string | null = null;
+    for (const p of candidates) {
+      if (existsSync(p)) {
+        raw = readFileSync(p, 'utf8');
+        break;
+      }
+    }
+    if (!raw) {
+      throw new BadRequestException('بيانات سور قالون غير متوفرة على الخادم');
+    }
+    const data = JSON.parse(raw) as {
+      surahs: Array<{ number: number; nameAr: string; ayahCount: number }>;
+    };
+    this.qalunSurahCounts = new Map(
+      data.surahs.map((s) => [
+        s.number,
+        { nameAr: s.nameAr, ayahCount: s.ayahCount },
+      ]),
+    );
+    return this.qalunSurahCounts;
+  }
+
+  private validateQalunMemorizationRange(input: {
+    memorizedQuota: boolean;
+    memorizationSurahNumber?: number;
+    memorizationSurahName?: string;
+    memorizationAyahFrom?: number;
+    memorizationAyahTo?: number;
+  }) {
+    if (!input.memorizedQuota) return null;
+    const n = Number(input.memorizationSurahNumber);
+    const from = Number(input.memorizationAyahFrom);
+    const to = Number(input.memorizationAyahTo);
+    if (!Number.isFinite(n) || !Number.isFinite(from) || !Number.isFinite(to)) {
+      throw new BadRequestException(
+        'حدد السورة والآيات حسب رواية قالون عن نافع',
+      );
+    }
+    const map = this.loadQalunSurahCounts();
+    const surah = map.get(n);
+    if (!surah) {
+      throw new BadRequestException('رقم السورة غير صالح في رواية قالون');
+    }
+    if (from < 1 || to < from || to > surah.ayahCount) {
+      throw new BadRequestException(
+        `نطاق الآيات غير صالح لهذه السورة في قالون (1–${surah.ayahCount})`,
+      );
+    }
+    return {
+      surahNumber: n,
+      surahName: surah.nameAr,
+      ayahFrom: from,
+      ayahTo: to,
+    };
   }
 
   /**
@@ -1146,6 +1222,10 @@ export class DomainService {
       memorizedQuota: report.memorizedQuota,
       memorizationFrom: report.memorizationFrom,
       memorizationTo: report.memorizationTo,
+      memorizationSurahNumber: report.memorizationSurahNumber,
+      memorizationSurahName: report.memorizationSurahName,
+      memorizationAyahFrom: report.memorizationAyahFrom,
+      memorizationAyahTo: report.memorizationAyahTo,
       reviewPortion: report.reviewPortion,
       reviewFrom: report.reviewFrom,
       reviewTo: report.reviewTo,

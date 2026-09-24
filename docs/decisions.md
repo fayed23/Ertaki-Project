@@ -60,3 +60,11 @@ Teacher students list: students appear **only under their group sections** (no f
 ## Notifications clear & hub badges
 - Any authenticated user may mark-all-read or clear-all their notifications.
 - Hub category badges use real unread/pending counts; badge hidden at 0.
+
+
+## Qalūn daily memorization ranges
+- Daily report حفظ ward uses structured surah number/name + āyah from–to validated against **Qalūn ‘an Nāfi‘** counts (6214), not Ḥafṣ (6236).
+- Dataset source: quran-center/quran-meta `QalunLists.ts` (KFGQPC Qaloun font metadata). See `mobile/assets/quran/DATASET.md`.
+
+## Time entry UI
+- All time fields use system clock / `showTimePicker` / HTML `<input type="time">` — no dual/range sliders.

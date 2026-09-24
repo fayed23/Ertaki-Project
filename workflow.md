@@ -13,7 +13,7 @@ Living product map of what exists today.
 - Self-host path: no SaaS seat limits; JWT + bcrypt auth
 - Try Live ports (cloud): API `43124`, admin `43123`, Flutter web `43125`
 - Public GitHub: https://github.com/fayed23/Ertaki-Project
-- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.8-apk`
+- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.9-apk`
 - Configurable API base: `--dart-define=API_BASE_URL=...` + in-app field on login (persisted); cleartext HTTP allowed for LAN testing
 - Docs: `requirements.md`, `docs/decisions.md` (store), `docs/ertaki-portable-production-guide.md`, root `README.md`
 
@@ -61,8 +61,9 @@ Living product map of what exists today.
 
 ## Daily report (التقرير اليومي)
 
-- Structured fields: حفظ القسط, times from–to, ورد المراجعة + times, 50 تكرار, مجلس واحد, تفسير
-- Single-screen form + sticky submit; **time range sliders** (5‑min snap)
+- Structured fields: حفظ القسط, **Qalūn surah + āyah from–to**, clock times from–to, ورد المراجعة + times, 50 تكرار, مجلس واحد, تفسير
+- Single-screen form + sticky submit; **clock-style TimeOfDay pickers** (same as create-group — no sliders)
+- Quran dataset: `mobile/assets/quran/qalun_surahs.json` + `api/data/quran/` — **قالون عن نافع** (6214 āyahs) from [quran-meta](https://github.com/quran-center/quran-meta) `QalunLists.ts` / KFGQPC QalounData (not Ḥafṣ)
 - **No edit after submit**
 - Visibility (locked):
   - **Teacher** of the student’s group: list + full detail + `daily_report_submitted` notification
@@ -129,6 +130,7 @@ Living product map of what exists today.
 - **System Back:** nested navigators + PopScope — pops in-app routes first; non-home tab → home; home → confirm exit
 - **Swipe:** horizontal PageView between bottom-nav destinations for all roles, synced with NavigationBar
 - Hub category tiles show **unread/new count badges** (hidden when 0): joins, reports missing today, group approvals, notifications
+- **Clock time pickers** everywhere (daily report, group schedule, admin deadline close) — no range/dual sliders
 
 ---
 

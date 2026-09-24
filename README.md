@@ -136,7 +136,7 @@ Demo query params on Flutter web: `?phone=0500000003&auto=1` (student) or `?phon
 
 ### How to install APK on phone
 
-1. Download [`releases/ertaki-android-release.apk`](./releases/ertaki-android-release.apk) from this repo, or the GitHub Release **[v1.0.8-apk](https://github.com/fayed23/Ertaki-Project/releases/tag/v1.0.8-apk)** asset.
+1. Download [`releases/ertaki-android-release.apk`](./releases/ertaki-android-release.apk) from this repo, or the GitHub Release **[v1.0.9-apk](https://github.com/fayed23/Ertaki-Project/releases/tag/v1.0.9-apk)** asset.
 2. On Android: **Settings → Security / Apps → Install unknown apps** (or **Allow from this source**) for Chrome/Files.
 3. Open the APK and install.
 4. Start the API on your PC (same Wi‑Fi) or use a public URL.
@@ -214,3 +214,8 @@ README.md          This file
 ```
 
 GitHub: https://github.com/fayed23/Ertaki-Project
+
+
+## Quran dataset (Qalūn)
+
+Daily memorization ranges use **Qalūn ‘an Nāfi‘** āyah counts (6214), bundled at `mobile/assets/quran/qalun_surahs.json`. Source notes: `mobile/assets/quran/DATASET.md`.

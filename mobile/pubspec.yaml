@@ -1,7 +1,7 @@
 name: ertaki_mobile
 description: ارتق — تطبيق متابعة حفظ القرآن
 publish_to: "none"
-version: 1.0.8+9
+version: 1.0.9+10
 
 environment:
   sdk: ^3.6.2
@@ -27,3 +27,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/quran/qalun_surahs.json
+    - assets/quran/DATASET.md

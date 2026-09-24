@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/notify.dart';
-import 'package:ertaki_mobile/time_slider.dart';
+import 'package:ertaki_mobile/clock_time.dart';
+import 'package:ertaki_mobile/quran_qalun.dart';
+import 'package:ertaki_mobile/surah_ayah_picker.dart';
 import 'package:ertaki_mobile/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -289,10 +291,14 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
   bool oneSitting = true;
   bool tafsir = false;
   final reviewCtrl = TextEditingController(text: 'الحزب 1');
-  int memFromMin = 20 * 60;
-  int memToMin = 21 * 60;
-  int reviewFromMin = 21 * 60;
-  int reviewToMin = 21 * 60 + 30;
+  TimeOfDay memFrom = const TimeOfDay(hour: 20, minute: 0);
+  TimeOfDay memTo = const TimeOfDay(hour: 21, minute: 0);
+  TimeOfDay reviewFrom = const TimeOfDay(hour: 21, minute: 0);
+  TimeOfDay reviewTo = const TimeOfDay(hour: 21, minute: 30);
+  QalunCatalog? catalog;
+  QalunSurah? memSurah;
+  int memAyahFrom = 1;
+  int memAyahTo = 1;
   bool loading = false;
   bool alreadySubmitted = false;
   bool checking = true;
@@ -301,7 +307,21 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
   @override
   void initState() {
     super.initState();
-    _check();
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    try {
+      final cat = await QalunCatalog.load();
+      final first = cat.surahs.first;
+      setState(() {
+        catalog = cat;
+        memSurah = first;
+        memAyahFrom = 1;
+        memAyahTo = first.ayahCount.clamp(1, first.ayahCount);
+      });
+    } catch (_) {}
+    await _check();
   }
 
   @override
@@ -323,15 +343,25 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
   }
 
   bool _validate() {
+    if (memorizedQuota && (memSurah == null || catalog == null)) {
+      setState(() => validationError = 'انتظر تحميل سور قالون أو أعد فتح الشاشة');
+      return false;
+    }
+    if (memorizedQuota && memSurah != null) {
+      if (memAyahFrom < 1 || memAyahTo < memAyahFrom || memAyahTo > memSurah!.ayahCount) {
+        setState(() => validationError = 'نطاق الآيات غير صالح لرواية قالون');
+        return false;
+      }
+    }
     if (reviewCtrl.text.trim().isEmpty) {
       setState(() => validationError = 'أدخل ورد المراجعة');
       return false;
     }
-    if (memToMin < memFromMin) {
+    if (minutesFromTime(memTo) < minutesFromTime(memFrom)) {
       setState(() => validationError = 'وقت انتهاء الحفظ يجب أن يكون بعد البداية');
       return false;
     }
-    if (reviewToMin < reviewFromMin) {
+    if (minutesFromTime(reviewTo) < minutesFromTime(reviewFrom)) {
       setState(() => validationError = 'وقت انتهاء المراجعة يجب أن يكون بعد البداية');
       return false;
     }
@@ -346,11 +376,17 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
       await widget.api.post('/daily-reports', {
         'reportDate': todayIso(),
         'memorizedQuota': memorizedQuota,
-        'memorizationFrom': formatHhMm(memFromMin),
-        'memorizationTo': formatHhMm(memToMin),
+        'memorizationFrom': formatTimeOfDay(memFrom),
+        'memorizationTo': formatTimeOfDay(memTo),
+        if (memorizedQuota && memSurah != null) ...{
+          'memorizationSurahNumber': memSurah!.number,
+          'memorizationSurahName': memSurah!.nameAr,
+          'memorizationAyahFrom': memAyahFrom,
+          'memorizationAyahTo': memAyahTo,
+        },
         'reviewPortion': reviewCtrl.text.trim(),
-        'reviewFrom': formatHhMm(reviewFromMin),
-        'reviewTo': formatHhMm(reviewToMin),
+        'reviewFrom': formatTimeOfDay(reviewFrom),
+        'reviewTo': formatTimeOfDay(reviewTo),
         'completedFiftyRepetitions': fifty,
         'repeatedInOneSitting': oneSitting,
         'readTafsir': tafsir,
@@ -406,16 +442,33 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
                   ],
                 ),
               ),
+              if (memorizedQuota) ...[
+                const SizedBox(height: 10),
+                if (catalog == null)
+                  SoftPanel(
+                    child: Text('جاري تحميل سور قالون…', style: ui(color: Brand.muted)),
+                  )
+                else
+                  SurahAyahRangePicker(
+                    catalog: catalog!,
+                    surah: memSurah,
+                    ayahFrom: memAyahFrom,
+                    ayahTo: memAyahTo,
+                    onChanged: (s, f, t) => setState(() {
+                      memSurah = s;
+                      memAyahFrom = f;
+                      memAyahTo = t;
+                    }),
+                  ),
+              ],
               const SizedBox(height: 10),
-              TimeRangeSlider(
+              ClockTimeRangeField(
                 title: 'توقيت الحفظ',
-                startLabel: 'من',
-                endLabel: 'إلى',
-                startMinutes: memFromMin,
-                endMinutes: memToMin,
+                start: memFrom,
+                end: memTo,
                 onChanged: (s, e) => setState(() {
-                  memFromMin = s;
-                  memToMin = e;
+                  memFrom = s;
+                  memTo = e;
                 }),
               ),
               const SizedBox(height: 10),
@@ -433,15 +486,13 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
                 ),
               ),
               const SizedBox(height: 10),
-              TimeRangeSlider(
+              ClockTimeRangeField(
                 title: 'توقيت المراجعة',
-                startLabel: 'من',
-                endLabel: 'إلى',
-                startMinutes: reviewFromMin,
-                endMinutes: reviewToMin,
+                start: reviewFrom,
+                end: reviewTo,
                 onChanged: (s, e) => setState(() {
-                  reviewFromMin = s;
-                  reviewToMin = e;
+                  reviewFrom = s;
+                  reviewTo = e;
                 }),
               ),
               const SizedBox(height: 10),

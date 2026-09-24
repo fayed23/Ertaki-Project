@@ -203,6 +203,10 @@ export class DomainController {
       memorizedQuota: boolean;
       memorizationFrom?: string;
       memorizationTo?: string;
+      memorizationSurahNumber?: number;
+      memorizationSurahName?: string;
+      memorizationAyahFrom?: number;
+      memorizationAyahTo?: number;
       reviewPortion?: string;
       reviewFrom?: string;
       reviewTo?: string;

@@ -134,12 +134,22 @@ class _DailyReportDetailPageState extends State<DailyReportDetailPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _row('حفظ القسط اليومي', _yn(r?['memorizedQuota'] as bool?)),
+                              if (r?['memorizationSurahName'] != null || r?['memorizationSurahNumber'] != null)
+                                _row(
+                                  'السورة (قالون)',
+                                  '${r?['memorizationSurahNumber'] ?? ''} · ${r?['memorizationSurahName'] ?? ''}',
+                                ),
+                              if (r?['memorizationAyahFrom'] != null)
+                                _row(
+                                  'الآيات',
+                                  '${r?['memorizationAyahFrom']} → ${r?['memorizationAyahTo']}',
+                                ),
                               _row(
-                                'من',
+                                'وقت من',
                                 '${r?['memorizationFrom'] ?? '—'}',
                               ),
                               _row(
-                                'إلى',
+                                'وقت إلى',
                                 '${r?['memorizationTo'] ?? '—'}',
                               ),
                             ],
