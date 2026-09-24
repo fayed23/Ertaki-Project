@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/notify.dart';
+import 'package:ertaki_mobile/time_slider.dart';
 import 'package:ertaki_mobile/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -288,10 +289,10 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
   bool oneSitting = true;
   bool tafsir = false;
   final reviewCtrl = TextEditingController(text: 'الحزب 1');
-  final memFromCtrl = TextEditingController();
-  final memToCtrl = TextEditingController();
-  final reviewFromCtrl = TextEditingController();
-  final reviewToCtrl = TextEditingController();
+  int memFromMin = 20 * 60;
+  int memToMin = 21 * 60;
+  int reviewFromMin = 21 * 60;
+  int reviewToMin = 21 * 60 + 30;
   bool loading = false;
   bool alreadySubmitted = false;
   bool checking = true;
@@ -306,10 +307,6 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
   @override
   void dispose() {
     reviewCtrl.dispose();
-    memFromCtrl.dispose();
-    memToCtrl.dispose();
-    reviewFromCtrl.dispose();
-    reviewToCtrl.dispose();
     super.dispose();
   }
 
@@ -330,6 +327,14 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
       setState(() => validationError = 'أدخل ورد المراجعة');
       return false;
     }
+    if (memToMin < memFromMin) {
+      setState(() => validationError = 'وقت انتهاء الحفظ يجب أن يكون بعد البداية');
+      return false;
+    }
+    if (reviewToMin < reviewFromMin) {
+      setState(() => validationError = 'وقت انتهاء المراجعة يجب أن يكون بعد البداية');
+      return false;
+    }
     setState(() => validationError = null);
     return true;
   }
@@ -341,11 +346,11 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
       await widget.api.post('/daily-reports', {
         'reportDate': todayIso(),
         'memorizedQuota': memorizedQuota,
-        'memorizationFrom': memFromCtrl.text.trim().isEmpty ? null : memFromCtrl.text.trim(),
-        'memorizationTo': memToCtrl.text.trim().isEmpty ? null : memToCtrl.text.trim(),
+        'memorizationFrom': formatHhMm(memFromMin),
+        'memorizationTo': formatHhMm(memToMin),
         'reviewPortion': reviewCtrl.text.trim(),
-        'reviewFrom': reviewFromCtrl.text.trim().isEmpty ? null : reviewFromCtrl.text.trim(),
-        'reviewTo': reviewToCtrl.text.trim().isEmpty ? null : reviewToCtrl.text.trim(),
+        'reviewFrom': formatHhMm(reviewFromMin),
+        'reviewTo': formatHhMm(reviewToMin),
         'completedFiftyRepetitions': fifty,
         'repeatedInOneSitting': oneSitting,
         'readTafsir': tafsir,
@@ -398,33 +403,20 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
                       value: memorizedQuota,
                       onChanged: (v) => setState(() => memorizedQuota = v),
                     ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: memFromCtrl,
-                            textDirection: TextDirection.ltr,
-                            decoration: const InputDecoration(
-                              labelText: 'من (وقت الحفظ)',
-                              hintText: '20:00',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: memToCtrl,
-                            textDirection: TextDirection.ltr,
-                            decoration: const InputDecoration(
-                              labelText: 'إلى',
-                              hintText: '21:00',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 10),
+              TimeRangeSlider(
+                title: 'توقيت الحفظ',
+                startLabel: 'من',
+                endLabel: 'إلى',
+                startMinutes: memFromMin,
+                endMinutes: memToMin,
+                onChanged: (s, e) => setState(() {
+                  memFromMin = s;
+                  memToMin = e;
+                }),
               ),
               const SizedBox(height: 10),
               SoftPanel(
@@ -437,34 +429,20 @@ class _StudentDailyReportState extends State<StudentDailyReport> {
                       controller: reviewCtrl,
                       decoration: const InputDecoration(labelText: 'ورد المراجعة'),
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: reviewFromCtrl,
-                            textDirection: TextDirection.ltr,
-                            decoration: const InputDecoration(
-                              labelText: 'من (وقت المراجعة)',
-                              hintText: '21:00',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: reviewToCtrl,
-                            textDirection: TextDirection.ltr,
-                            decoration: const InputDecoration(
-                              labelText: 'إلى',
-                              hintText: '21:30',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 10),
+              TimeRangeSlider(
+                title: 'توقيت المراجعة',
+                startLabel: 'من',
+                endLabel: 'إلى',
+                startMinutes: reviewFromMin,
+                endMinutes: reviewToMin,
+                onChanged: (s, e) => setState(() {
+                  reviewFromMin = s;
+                  reviewToMin = e;
+                }),
               ),
               const SizedBox(height: 10),
               SoftPanel(

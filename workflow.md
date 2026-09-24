@@ -13,7 +13,7 @@ Living product map of what exists today.
 - Self-host path: no SaaS seat limits; JWT + bcrypt auth
 - Try Live ports (cloud): API `43124`, admin `43123`, Flutter web `43125`
 - Public GitHub: https://github.com/fayed23/Ertaki-Project
-- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.3-apk`
+- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.4-apk`
 - Configurable API base: `--dart-define=API_BASE_URL=...` + in-app field on login (persisted); cleartext HTTP allowed for LAN testing
 - Docs: `requirements.md`, `docs/decisions.md` (store), `docs/ertaki-portable-production-guide.md`, root `README.md`
 
@@ -58,6 +58,8 @@ Living product map of what exists today.
 
 - Structured fields (not free text): حفظ القسط, times from–to, ورد المراجعة + times, 50 تكرار, مجلس واحد, تفسير
 - **Single-screen form** (all fields visible) + sticky submit — no step wizard
+- **Time entry:** dual **time range sliders** (HH:mm, 5‑minute snap) for حفظ from–to and مراجعة from–to — no free-text clock typing; end ≥ start
+- Admin: report-deadline **close time** also set via time slider (policies tab)
 - **No edit after submit**; locked empty state if already sent today
 - Visibility: **staff only** — students never see peers’ reports or submit status
 - **Staff report detail:** `GET /daily-reports/:id` returns student name + group + all fields

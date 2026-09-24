@@ -110,6 +110,132 @@ async function api<T>(
   return res.json() as Promise<T>;
 }
 
+const TIME_STEP = 5;
+const DAY_MIN = 24 * 60 - TIME_STEP;
+
+function clampMin(m: number) {
+  const snapped = Math.round(m / TIME_STEP) * TIME_STEP;
+  return Math.max(0, Math.min(DAY_MIN, snapped));
+}
+
+function parseHhMm(raw: string | null | undefined, fallback = 0) {
+  if (!raw) return clampMin(fallback);
+  const [h, m] = raw.split(":").map((x) => parseInt(x, 10));
+  if (Number.isNaN(h) || Number.isNaN(m)) return clampMin(fallback);
+  return clampMin(h * 60 + m);
+}
+
+function formatHhMm(minutes: number) {
+  const m = clampMin(minutes);
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+function TimeSliderField({
+  label,
+  minutes,
+  onChange,
+}: {
+  label: string;
+  minutes: number;
+  onChange: (m: number) => void;
+}) {
+  return (
+    <div style={{ display: "grid", gap: "0.35rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
+        <span style={{ fontWeight: 600 }}>{label}</span>
+        <strong dir="ltr" style={{ color: "var(--forest)", fontSize: "1.15rem" }}>
+          {formatHhMm(minutes)}
+        </strong>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={DAY_MIN}
+        step={TIME_STEP}
+        value={clampMin(minutes)}
+        onChange={(e) => onChange(clampMin(Number(e.target.value)))}
+        aria-label={label}
+        style={{ width: "100%", accentColor: "var(--forest)" }}
+      />
+      <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.78rem" }}>
+        شريط تمرير — خطوة {TIME_STEP} دقائق (بدون كتابة يدوية)
+      </p>
+    </div>
+  );
+}
+
+function TimeRangeSliderField({
+  title,
+  startMinutes,
+  endMinutes,
+  onChange,
+}: {
+  title: string;
+  startMinutes: number;
+  endMinutes: number;
+  onChange: (start: number, end: number) => void;
+}) {
+  const start = clampMin(startMinutes);
+  const end = Math.max(start, clampMin(endMinutes));
+  return (
+    <div className="panel" style={{ padding: "1rem 1.15rem", display: "grid", gap: "0.85rem" }}>
+      <p style={{ margin: 0, fontWeight: 700 }}>{title}</p>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
+        <div>
+          <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>من</span>
+          <div dir="ltr" style={{ fontWeight: 800, color: "var(--forest)", fontSize: "1.25rem" }}>
+            {formatHhMm(start)}
+          </div>
+        </div>
+        <div style={{ textAlign: "left" }}>
+          <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>إلى</span>
+          <div dir="ltr" style={{ fontWeight: 800, color: "var(--forest)", fontSize: "1.25rem" }}>
+            {formatHhMm(end)}
+          </div>
+        </div>
+      </div>
+      <label className="field" style={{ gap: "0.25rem" }}>
+        <span>البداية</span>
+        <input
+          type="range"
+          min={0}
+          max={DAY_MIN}
+          step={TIME_STEP}
+          value={start}
+          onChange={(e) => {
+            const s = clampMin(Number(e.target.value));
+            onChange(s, Math.max(s, end));
+          }}
+          style={{ width: "100%", accentColor: "var(--forest)" }}
+        />
+      </label>
+      <label className="field" style={{ gap: "0.25rem" }}>
+        <span>النهاية (≥ البداية)</span>
+        <input
+          type="range"
+          min={start}
+          max={DAY_MIN}
+          step={TIME_STEP}
+          value={end}
+          onChange={(e) => onChange(start, clampMin(Number(e.target.value)))}
+          style={{ width: "100%", accentColor: "var(--forest)" }}
+        />
+      </label>
+    </div>
+  );
+}
+
+type DeadlineConfig = {
+  id?: string;
+  enabled: boolean;
+  timezone: string;
+  closeTimeLocal: string;
+  reminderMinutesBefore?: number;
+  notes?: string | null;
+};
+
 const STATUS_AR: Record<string, string> = {
   pending: "قيد المراجعة",
   pending_approval: "بانتظار التفعيل",
@@ -137,6 +263,10 @@ export default function AdminHome() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [reports, setReports] = useState<DailyReportRow[]>([]);
   const [selectedReport, setSelectedReport] = useState<DailyReportRow | null>(null);
+  const [deadline, setDeadline] = useState<DeadlineConfig | null>(null);
+  const [closeMinutes, setCloseMinutes] = useState(23 * 60 + 55);
+  const [demoMemStart, setDemoMemStart] = useState(20 * 60);
+  const [demoMemEnd, setDemoMemEnd] = useState(21 * 60);
   const [tab, setTab] = useState<
     "dash" | "accounts" | "joins" | "reports" | "groups" | "policies"
   >("dash");
@@ -166,13 +296,14 @@ export default function AdminHome() {
   async function refresh() {
     if (!token) return;
     const today = new Date().toISOString().slice(0, 10);
-    const [d, a, j, p, g, r] = await Promise.all([
+    const [d, a, j, p, g, r, dl] = await Promise.all([
       api<Dashboard>("/dashboards/supervisor", token),
       api<PendingAccount[]>("/account-approvals", token),
       api<JoinRequest[]>("/join-requests", token),
       api<Policy[]>("/infraction-policies", token),
       api<Group[]>("/groups", token),
       api<DailyReportRow[]>(`/daily-reports?reportDate=${today}`, token),
+      api<DeadlineConfig[] | DeadlineConfig>("/report-deadline-config", token),
     ]);
     setDashboard(d);
     setAccounts(a);
@@ -180,6 +311,11 @@ export default function AdminHome() {
     setPolicies(p);
     setGroups(g);
     setReports(r);
+    const row = Array.isArray(dl) ? dl[0] : dl;
+    if (row) {
+      setDeadline(row);
+      setCloseMinutes(parseHhMm(row.closeTimeLocal, 23 * 60 + 55));
+    }
   }
 
   useEffect(() => {
@@ -957,6 +1093,60 @@ export default function AdminHome() {
               العواقب تُقرأ من الإعدادات فقط — لا عتبات ثابتة في منطق التطبيق. السياسات
               المعطّلة لا تُنفَّذ.
             </p>
+
+            <div className="panel" style={{ padding: "1.15rem", marginBottom: "1rem", display: "grid", gap: "1rem" }}>
+              <h3 style={{ margin: 0, fontSize: "1.1rem" }}>وقت إغلاق التقرير اليومي</h3>
+              <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.9rem" }}>
+                يُضبط بشريط تمرير (HH:mm) — بدون كتابة رقم الساعة يدوياً
+              </p>
+              <TimeSliderField
+                label="إغلاق النافذة"
+                minutes={closeMinutes}
+                onChange={setCloseMinutes}
+              />
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ boxShadow: "none", justifySelf: "start" }}
+                onClick={async () => {
+                  if (!token) return;
+                  try {
+                    await api("/report-deadline-config", token, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        enabled: deadline?.enabled ?? true,
+                        timezone: deadline?.timezone || "Africa/Algiers",
+                        closeTimeLocal: formatHhMm(closeMinutes),
+                        reminderMinutesBefore: deadline?.reminderMinutesBefore ?? 60,
+                        notes: deadline?.notes ?? null,
+                      }),
+                    });
+                    toast(`تم حفظ وقت الإغلاق ${formatHhMm(closeMinutes)}`);
+                    await refresh();
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : String(e));
+                  }
+                }}
+              >
+                حفظ وقت الإغلاق
+              </button>
+            </div>
+
+            <div style={{ marginBottom: "1rem" }}>
+              <p style={{ margin: "0 0 0.5rem", color: "var(--muted)", fontSize: "0.9rem" }}>
+                معاينة نمط شريط النطاق (كما في تقرير الطالب: حفظ من–إلى)
+              </p>
+              <TimeRangeSliderField
+                title="مثال: توقيت الحفظ"
+                startMinutes={demoMemStart}
+                endMinutes={demoMemEnd}
+                onChange={(s, e) => {
+                  setDemoMemStart(s);
+                  setDemoMemEnd(e);
+                }}
+              />
+            </div>
+
             <div className="panel" style={{ marginBottom: "1rem" }}>
               {policies.map((p) => (
                 <div
