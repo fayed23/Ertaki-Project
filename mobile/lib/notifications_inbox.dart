@@ -81,6 +81,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
+  Future<bool> _deleteOne(Map<String, dynamic> item) async {
+    final id = item['id']?.toString();
+    if (id == null || id.isEmpty) return false;
+    try {
+      await widget.api.delete('/notifications/$id');
+      return true;
+    } catch (e) {
+      if (mounted) showToast(context, e.toString(), error: true);
+      return false;
+    }
+  }
+
   Future<void> _openNotification(Map<String, dynamic> item) async {
     final id = item['id']?.toString();
     if (id != null && item['readAt'] == null) {
@@ -168,6 +180,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
+  Widget _dismissBg({required Alignment align}) {
+    return Container(
+      alignment: align,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Brand.danger.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(Icons.delete_outline_rounded, color: Brand.danger),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
@@ -218,45 +242,60 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       type == 'weekly_report');
               final tappable = hint != null && !reportLockedForSupervisor;
               final unreadItem = item['readAt'] == null;
-              return SoftPanel(
-                margin: const EdgeInsets.only(bottom: 8),
-                onTap: tappable ? () => _openNotification(item) : () async {
-                  if (unreadItem && item['id'] != null) {
-                    await widget.api.post('/notifications/mark-read', {
-                      'ids': [item['id']],
-                    });
-                    await _load();
-                  }
+              final id = '${item['id'] ?? ''}';
+              return Dismissible(
+                key: ValueKey('notif-$id'),
+                direction: DismissDirection.horizontal,
+                background: _dismissBg(align: Alignment.centerRight),
+                secondaryBackground: _dismissBg(align: Alignment.centerLeft),
+                confirmDismiss: (_) => _deleteOne(item),
+                onDismissed: (_) {
+                  setState(() {
+                    items = items.where((e) => '${(e as Map)['id']}' != id).toList();
+                  });
                 },
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        if (unreadItem)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(left: 8),
-                            decoration: const BoxDecoration(
-                              color: Brand.gold,
-                              shape: BoxShape.circle,
+                child: SoftPanel(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  onTap: tappable
+                      ? () => _openNotification(item)
+                      : () async {
+                          if (unreadItem && item['id'] != null) {
+                            await widget.api.post('/notifications/mark-read', {
+                              'ids': [item['id']],
+                            });
+                            await _load();
+                          }
+                        },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          if (unreadItem)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(left: 8),
+                              decoration: const BoxDecoration(
+                                color: Brand.gold,
+                                shape: BoxShape.circle,
+                              ),
                             ),
+                          Expanded(
+                            child: Text('${item['title']}', style: ui(weight: FontWeight.w700)),
                           ),
-                        Expanded(
-                          child: Text('${item['title']}', style: ui(weight: FontWeight.w700)),
-                        ),
-                        if (tappable)
-                          Text('فتح', style: ui(size: 12, color: Brand.forestMid, weight: FontWeight.w700)),
+                          if (tappable)
+                            Text('فتح', style: ui(size: 12, color: Brand.forestMid, weight: FontWeight.w700)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text('${item['body']}', style: ui(color: Brand.muted)),
+                      if (tappable && hint != null) ...[
+                        const SizedBox(height: 6),
+                        Text(hint, style: ui(size: 12, color: Brand.forestMid)),
                       ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text('${item['body']}', style: ui(color: Brand.muted)),
-                    if (tappable) ...[
-                      const SizedBox(height: 6),
-                      Text(hint!, style: ui(size: 12, color: Brand.forestMid)),
                     ],
-                  ],
+                  ),
                 ),
               );
             }),

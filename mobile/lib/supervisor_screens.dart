@@ -11,14 +11,13 @@ class SupervisorHome extends StatefulWidget {
     super.key,
     required this.api,
     required this.me,
-    required this.onGoJoins,
-    this.onOpenNotifications,
+    this.onSelectTab,
     this.refreshTick,
   });
   final ApiClient api;
   final Map<String, dynamic> me;
-  final VoidCallback onGoJoins;
-  final VoidCallback? onOpenNotifications;
+  /// Switch shell bottom-nav: joins=1, groups=2, notifications=3.
+  final ValueChanged<int>? onSelectTab;
   /// Shell bumps this when the home tab is shown / app resumes / home re-tapped.
   final ValueNotifier<int>? refreshTick;
 
@@ -137,24 +136,21 @@ class _SupervisorHomeState extends State<SupervisorHome> with RouteAware {
             label: 'تفعيل المعلمين',
             subtitle: 'موافقة التسجيل',
             badgeCount: pendingAccounts,
-            onTap: widget.onGoJoins,
+            onTap: () => widget.onSelectTab?.call(1),
           ),
           HubCategory(
             icon: Icons.how_to_reg_outlined,
             label: 'طلبات الانضمام',
             subtitle: 'قبول أو رفض',
             badgeCount: pendingJoins,
-            onTap: () => _open(SupervisorJoins(api: widget.api)),
+            onTap: () => widget.onSelectTab?.call(1),
           ),
           HubCategory(
             icon: Icons.groups_outlined,
             label: 'المجموعات',
             subtitle: 'موافقة الإنشاء · موجز/تفصيلي',
             badgeCount: pendingGroupApprovals,
-            onTap: () => _open(Scaffold(
-              appBar: AppBar(title: Text('المجموعات', style: ui(size: 18, weight: FontWeight.w700))),
-              body: Atmosphere(child: SupervisorGroups(api: widget.api)),
-            )),
+            onTap: () => widget.onSelectTab?.call(2),
           ),
           HubCategory(
             icon: Icons.menu_book_outlined,
@@ -166,7 +162,7 @@ class _SupervisorHomeState extends State<SupervisorHome> with RouteAware {
             icon: Icons.notifications_outlined,
             label: 'الإشعارات',
             badgeCount: unreadNotifs,
-            onTap: () => widget.onOpenNotifications?.call(),
+            onTap: () => widget.onSelectTab?.call(3),
           ),
         ],
       ),

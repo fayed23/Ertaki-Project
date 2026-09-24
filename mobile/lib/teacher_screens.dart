@@ -11,12 +11,13 @@ class TeacherHome extends StatefulWidget {
     super.key,
     required this.api,
     required this.me,
-    this.onOpenNotifications,
+    this.onSelectTab,
     this.refreshTick,
   });
   final ApiClient api;
   final Map<String, dynamic> me;
-  final VoidCallback? onOpenNotifications;
+  /// Switch shell bottom-nav tab (students=1, attendance=2, notifications=3).
+  final ValueChanged<int>? onSelectTab;
   /// Shell bumps this when the home tab is shown / app resumes / home re-tapped.
   final ValueNotifier<int>? refreshTick;
 
@@ -111,8 +112,11 @@ class _TeacherHomeState extends State<TeacherHome> with RouteAware {
       infra += (g['openInfractions'] as num?)?.toInt() ?? 0;
     }
     final pendingJoins = (badges['pendingJoins'] as num?)?.toInt() ?? 0;
-    final missingReports =
-        (badges['missingTodayReports'] as num?)?.toInt() ?? missing;
+    final submittedToday = (badges['todaySubmittedReports'] as num?)?.toInt() ??
+        groups.fold<int>(
+          0,
+          (sum, g) => sum + ((g['submittedToday'] as num?)?.toInt() ?? 0),
+        );
     final unreadNotifs = (badges['unreadNotifications'] as num?)?.toInt() ?? 0;
 
     return RefreshIndicator(
@@ -147,7 +151,13 @@ class _TeacherHomeState extends State<TeacherHome> with RouteAware {
             icon: Icons.school_outlined,
             label: 'الطلبة',
             subtitle: 'حسب المجموعة فقط',
-            onTap: () => _open(TeacherStudents(api: widget.api)),
+            onTap: () {
+              if (widget.onSelectTab != null) {
+                widget.onSelectTab!(1);
+              } else {
+                _open(TeacherStudents(api: widget.api));
+              }
+            },
           ),
           HubCategory(
             icon: Icons.how_to_reg_outlined,
@@ -160,13 +170,19 @@ class _TeacherHomeState extends State<TeacherHome> with RouteAware {
             icon: Icons.event_available_outlined,
             label: 'الحضور الأسبوعي',
             subtitle: 'مجلس الأسبوع',
-            onTap: () => _open(TeacherAttendance(api: widget.api)),
+            onTap: () {
+              if (widget.onSelectTab != null) {
+                widget.onSelectTab!(2);
+              } else {
+                _open(TeacherAttendance(api: widget.api));
+              }
+            },
           ),
           HubCategory(
             icon: Icons.insights_outlined,
             label: 'التقارير',
             subtitle: 'يومي وأسبوعي',
-            badgeCount: missingReports,
+            badgeCount: submittedToday,
             onTap: () => _open(TeacherReportsHub(api: widget.api, today: '${data?['today'] ?? todayIso()}')),
           ),
           HubCategory(
@@ -185,8 +201,8 @@ class _TeacherHomeState extends State<TeacherHome> with RouteAware {
             label: 'الإشعارات',
             badgeCount: unreadNotifs,
             onTap: () {
-              if (widget.onOpenNotifications != null) {
-                widget.onOpenNotifications!();
+              if (widget.onSelectTab != null) {
+                widget.onSelectTab!(3);
               }
             },
           ),

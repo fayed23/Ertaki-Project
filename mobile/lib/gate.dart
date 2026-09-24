@@ -18,8 +18,10 @@ class _GatePageState extends State<GatePage> {
   late final TextEditingController phoneCtrl;
   final passCtrl = TextEditingController(text: 'password123');
   late final TextEditingController apiCtrl;
+  final _scroll = ScrollController();
   bool loading = false;
   bool showApi = true;
+  double _logoReveal = 0;
 
   @override
   void initState() {
@@ -29,6 +31,7 @@ class _GatePageState extends State<GatePage> {
       text: (q != null && q.isNotEmpty) ? q : '0500000003',
     );
     apiCtrl = TextEditingController(text: AppConfig.apiBase);
+    _scroll.addListener(_onScroll);
     if (Uri.base.queryParameters['auto'] == '1') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) login();
@@ -38,10 +41,20 @@ class _GatePageState extends State<GatePage> {
 
   @override
   void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
     phoneCtrl.dispose();
     passCtrl.dispose();
     apiCtrl.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final next = ((_scroll.offset - 12) / 56).clamp(0.0, 1.0);
+    if ((next - _logoReveal).abs() > 0.02) {
+      setState(() => _logoReveal = next);
+    }
   }
 
   Future<void> login() async {
@@ -78,115 +91,131 @@ class _GatePageState extends State<GatePage> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(24),
-                      children: [
-                        const SizedBox(height: 20),
-                        Center(
-                          child: Image.asset(
-                            'assets/branding/app_logo.png',
-                            height: 96,
-                            fit: BoxFit.contain,
+              child: CustomScrollView(
+                controller: _scroll,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 20),
+                          Center(
+                            child: Image.asset(
+                              'assets/branding/app_logo.png',
+                              height: 96,
+                              fit: BoxFit.contain,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text('ارتق', style: brandStyle(size: 56), textAlign: TextAlign.center),
-                        const SizedBox(height: 8),
-                        Text(
-                          'متابعة حفظ القرآن الكريم',
-                          style: ui(size: 16, color: Brand.muted),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        SoftPanel(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text('تسجيل الدخول', style: ui(size: 20, weight: FontWeight.w700)),
-                              const SizedBox(height: 16),
-                              TextField(
-                                controller: phoneCtrl,
-                                keyboardType: TextInputType.phone,
-                                textDirection: TextDirection.ltr,
-                                decoration: const InputDecoration(labelText: 'رقم الهاتف'),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: passCtrl,
-                                obscureText: true,
-                                decoration: const InputDecoration(labelText: 'كلمة المرور'),
-                              ),
-                              const SizedBox(height: 8),
-                              TextButton(
-                                onPressed: () => setState(() => showApi = !showApi),
-                                child: Text(
-                                  showApi ? 'إخفاء عنوان الخادم' : 'إعداد عنوان الخادم (API)',
-                                  style: ui(size: 13, color: Brand.forestMid, weight: FontWeight.w600),
-                                ),
-                              ),
-                              if (showApi) ...[
+                          const SizedBox(height: 12),
+                          Text('ارتق', style: brandStyle(size: 56), textAlign: TextAlign.center),
+                          const SizedBox(height: 8),
+                          Text(
+                            'متابعة حفظ القرآن الكريم',
+                            style: ui(size: 16, color: Brand.muted),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          SoftPanel(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text('تسجيل الدخول', style: ui(size: 20, weight: FontWeight.w700)),
+                                const SizedBox(height: 16),
                                 TextField(
-                                  controller: apiCtrl,
-                                  keyboardType: TextInputType.url,
+                                  controller: phoneCtrl,
+                                  keyboardType: TextInputType.phone,
                                   textDirection: TextDirection.ltr,
-                                  decoration: const InputDecoration(
-                                    labelText: 'API base URL',
-                                    hintText: 'http://192.168.1.10:43124/api',
-                                    helperText: 'Phone must reach this host (LAN / ngrok / deployed)',
-                                  ),
+                                  decoration: const InputDecoration(labelText: 'رقم الهاتف'),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: passCtrl,
+                                  obscureText: true,
+                                  decoration: const InputDecoration(labelText: 'كلمة المرور'),
                                 ),
                                 const SizedBox(height: 8),
+                                TextButton(
+                                  onPressed: () => setState(() => showApi = !showApi),
+                                  child: Text(
+                                    showApi ? 'إخفاء عنوان الخادم' : 'إعداد عنوان الخادم (API)',
+                                    style: ui(size: 13, color: Brand.forestMid, weight: FontWeight.w600),
+                                  ),
+                                ),
+                                if (showApi) ...[
+                                  TextField(
+                                    controller: apiCtrl,
+                                    keyboardType: TextInputType.url,
+                                    textDirection: TextDirection.ltr,
+                                    decoration: const InputDecoration(
+                                      labelText: 'API base URL',
+                                      hintText: 'http://192.168.1.10:43124/api',
+                                      helperText: 'Phone must reach this host (LAN / ngrok / deployed)',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                                const SizedBox(height: 10),
+                                FilledButton(
+                                  onPressed: loading ? null : login,
+                                  child: Text(loading ? 'جاري الدخول…' : 'دخول'),
+                                ),
+                                const SizedBox(height: 10),
+                                OutlinedButton(
+                                  onPressed: loading
+                                      ? null
+                                      : () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(builder: (_) => const SignupPage()),
+                                          );
+                                        },
+                                  child: const Text('إنشاء حساب طالب / معلم'),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'الطالب يُفعَّل فوراً ويختار مجموعة · المعلم ينتظر موافقة المشرف',
+                                  style: ui(size: 11, color: Brand.muted),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'طالب 0500000003 · معلم 0500000002 · مشرف 0500000001',
+                                  style: ui(size: 11, color: Brand.muted),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'المشرف يدخل من التطبيق أو لوحة الويب بنفس الحساب',
+                                  style: ui(size: 11, color: Brand.muted),
+                                  textAlign: TextAlign.center,
+                                ),
                               ],
-                              const SizedBox(height: 10),
-                              FilledButton(
-                                onPressed: loading ? null : login,
-                                child: Text(loading ? 'جاري الدخول…' : 'دخول'),
-                              ),
-                              const SizedBox(height: 10),
-                              OutlinedButton(
-                                onPressed: loading
-                                    ? null
-                                    : () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(builder: (_) => const SignupPage()),
-                                        );
-                                      },
-                                child: const Text('إنشاء حساب طالب / معلم'),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'الطالب يُفعَّل فوراً ويختار مجموعة · المعلم ينتظر موافقة المشرف',
-                                style: ui(size: 11, color: Brand.muted),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'طالب 0500000003 · معلم 0500000002 · مشرف 0500000001',
-                                style: ui(size: 11, color: Brand.muted),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'المشرف يدخل من التطبيق أو لوحة الويب بنفس الحساب',
-                                style: ui(size: 11, color: Brand.muted),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                    child: Center(
-                      child: Image.asset(
-                        'assets/branding/GroupLogo.png',
-                        height: 72,
-                        fit: BoxFit.contain,
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: SizedBox.shrink(),
+                  ),
+                  SliverToBoxAdapter(
+                    child: IgnorePointer(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                        child: Opacity(
+                          opacity: _logoReveal,
+                          child: Center(
+                            child: Image.asset(
+                              'assets/branding/GroupLogo.png',
+                              height: 72,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),

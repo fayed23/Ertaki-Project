@@ -120,6 +120,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   PreferredSizeWidget _brandAppBar() {
     return AppBar(
+      leading: IconButton(
+        tooltip: 'حول التطبيق',
+        onPressed: () => showAboutErtaki(context),
+        icon: const Icon(Icons.info_outline_rounded),
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+      ),
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -134,12 +140,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         ],
       ),
       actions: [
-        IconButton(
-          tooltip: 'حول التطبيق',
-          onPressed: () => showAboutErtaki(context),
-          icon: const Icon(Icons.info_outline_rounded),
-          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-        ),
         IconButton(
           tooltip: 'خروج',
           onPressed: logout,
@@ -221,16 +221,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     );
   }
 
-  Widget _pushNotifications(String role) {
-    return Scaffold(
-      backgroundColor: Brand.mist,
-      appBar: AppBar(
-        title: Text('الإشعارات', style: ui(size: 18, weight: FontWeight.w700)),
-      ),
-      body: Atmosphere(child: NotificationsPage(api: api, role: role)),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (me == null || (me!['role'] == 'student' && studentHasGroup == null)) {
@@ -294,23 +284,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           api: api,
           me: me!,
           refreshTick: hubRefreshTick,
-          onGoJoins: () {
-            _navKeys[0].currentState?.push(
-              MaterialPageRoute(
-                builder: (_) => Scaffold(
-                  backgroundColor: Brand.mist,
-                  appBar: AppBar(
-                    title: Text('طلبات الانضمام', style: ui(size: 18, weight: FontWeight.w700)),
-                  ),
-                  body: Atmosphere(child: SupervisorJoins(api: api)),
-                ),
-              ),
-            );
-          },
-          onOpenNotifications: () {
-            _navKeys[0].currentState?.push(
-              MaterialPageRoute(builder: (_) => _pushNotifications('supervisor')),
-            );
+          onSelectTab: (i) {
+            _navKeys[i].currentState?.popUntil((r) => r.isFirst);
+            _goTab(i);
           },
         ),
         SupervisorJoins(api: api),
@@ -329,10 +305,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           api: api,
           me: me!,
           refreshTick: hubRefreshTick,
-          onOpenNotifications: () {
-            _navKeys[0].currentState?.push(
-              MaterialPageRoute(builder: (_) => _pushNotifications('teacher')),
-            );
+          onSelectTab: (i) {
+            _navKeys[i].currentState?.popUntil((r) => r.isFirst);
+            _goTab(i);
           },
         ),
         TeacherStudents(api: api),

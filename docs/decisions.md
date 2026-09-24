@@ -58,8 +58,10 @@ Teacher students list: students appear **only under their group sections** (no f
 - Teacher edits notify supervisors (`group_updated`).
 
 ## Notifications clear & hub badges
-- Any authenticated user may mark-all-read or clear-all their notifications.
+- Any authenticated user may mark-all-read or clear-all their notifications; swipe L/R deletes one (`DELETE /notifications/:id`).
 - Hub category badges use real unread/pending counts; badge hidden at 0.
+- Teacher **التقارير** badge = today’s **submitted** report count (matches list), not missing students.
+- Hub tiles with a bottom-nav equivalent switch that tab instead of pushing a duplicate route.
 
 
 ## Qalūn daily memorization ranges

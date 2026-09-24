@@ -22,7 +22,7 @@ class HubCategory {
   final VoidCallback onTap;
 }
 
-class RoleHubHome extends StatefulWidget {
+class RoleHubHome extends StatelessWidget {
   const RoleHubHome({
     super.key,
     required this.title,
@@ -36,95 +36,34 @@ class RoleHubHome extends StatefulWidget {
   final Widget? header;
 
   @override
-  State<RoleHubHome> createState() => _RoleHubHomeState();
-}
-
-class _RoleHubHomeState extends State<RoleHubHome> {
-  final _scroll = ScrollController();
-  double _logoReveal = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scroll.removeListener(_onScroll);
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (!_scroll.hasClients) return;
-    final next = ((_scroll.offset - 8) / 48).clamp(0.0, 1.0);
-    if ((next - _logoReveal).abs() > 0.02) {
-      setState(() => _logoReveal = next);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      controller: _scroll,
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(widget.title, style: ui(size: 22, weight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text(widget.subtitle, style: ui(size: 13, color: Brand.muted)),
-                if (widget.header != null) ...[
-                  const SizedBox(height: 12),
-                  widget.header!,
-                ],
-                const SizedBox(height: 16),
-                Text('الأقسام', style: ui(size: 15, weight: FontWeight.w700, color: Brand.muted)),
-                const SizedBox(height: 10),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final wide = constraints.maxWidth > 520;
-                    final cross = wide ? 3 : 2;
-                    return GridView.count(
-                      crossAxisCount: cross,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: wide ? 1.35 : 1.15,
-                      children: widget.categories.map((c) => _HubTile(category: c)).toList(),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SliverFillRemaining(
-          hasScrollBody: false,
-          child: SizedBox.shrink(),
-        ),
-        SliverToBoxAdapter(
-          child: IgnorePointer(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
-              child: Opacity(
-                opacity: _logoReveal,
-                child: Center(
-                  child: Image.asset(
-                    'assets/branding/GroupLogo.png',
-                    height: 72,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-            ),
-          ),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        Text(title, style: ui(size: 22, weight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text(subtitle, style: ui(size: 13, color: Brand.muted)),
+        if (header != null) ...[
+          const SizedBox(height: 12),
+          header!,
+        ],
+        const SizedBox(height: 16),
+        Text('الأقسام', style: ui(size: 15, weight: FontWeight.w700, color: Brand.muted)),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth > 520;
+            final cross = wide ? 3 : 2;
+            return GridView.count(
+              crossAxisCount: cross,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: wide ? 1.35 : 1.15,
+              children: categories.map((c) => _HubTile(category: c)).toList(),
+            );
+          },
         ),
       ],
     );

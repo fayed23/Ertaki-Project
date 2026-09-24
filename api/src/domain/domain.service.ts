@@ -2216,6 +2216,17 @@ export class DomainService {
     return { cleared: result.affected ?? 0 };
   }
 
+  async deleteNotification(actor: User, id: string) {
+    const result = await this.notifications.delete({
+      id,
+      recipientId: actor.id,
+    });
+    if (!result.affected) {
+      throw new NotFoundException('الإشعار غير موجود');
+    }
+    return { deleted: 1 };
+  }
+
   private async unreadNotificationCount(userId: string) {
     return this.notifications.count({
       where: { recipientId: userId, readAt: IsNull() },
@@ -2290,12 +2301,17 @@ export class DomainService {
           .getCount()
       : 0;
     const unreadNotifications = await this.unreadNotificationCount(actor.id);
+    let submittedTotal = 0;
+    for (const row of result) {
+      submittedTotal += (row.submittedToday as number) ?? 0;
+    }
     return {
       today,
       groups: result,
       badges: {
         pendingJoins,
         missingTodayReports: missingTotal,
+        todaySubmittedReports: submittedTotal,
         unreadNotifications,
       },
     };

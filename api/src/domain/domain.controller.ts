@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -487,6 +488,11 @@ export class DomainController {
   @Post('notifications/clear')
   clearNotifications(@CurrentUser() user: User) {
     return this.domain.clearNotifications(user);
+  }
+
+  @Delete('notifications/:id')
+  deleteNotification(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.domain.deleteNotification(user, id);
   }
 
   @Post('device-tokens')
