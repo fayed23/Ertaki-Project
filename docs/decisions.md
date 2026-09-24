@@ -51,3 +51,12 @@ Teacher students list: students appear **only under their group sections** (no f
 ## Android navigation
 - System Back pops the current in-app route; only exits (with confirm) on role home root.
 - Bottom destinations are swipeable via PageView and stay in sync with the NavigationBar.
+
+
+## Group editing
+- Group teacher (owner) and supervisors may edit group params: name, WhatsApp, seats, description, schedule, gender (teacher: gender only when empty).
+- Teacher edits notify supervisors (`group_updated`).
+
+## Notifications clear & hub badges
+- Any authenticated user may mark-all-read or clear-all their notifications.
+- Hub category badges use real unread/pending counts; badge hidden at 0.

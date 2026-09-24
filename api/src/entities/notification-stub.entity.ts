@@ -28,6 +28,9 @@ export class NotificationStub {
   @Column({ default: false })
   delivered: boolean;
 
+  @Column({ type: 'datetime', nullable: true })
+  readAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

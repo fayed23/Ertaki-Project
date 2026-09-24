@@ -13,7 +13,7 @@ Living product map of what exists today.
 - Self-host path: no SaaS seat limits; JWT + bcrypt auth
 - Try Live ports (cloud): API `43124`, admin `43123`, Flutter web `43125`
 - Public GitHub: https://github.com/fayed23/Ertaki-Project
-- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.7-apk`
+- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.8-apk`
 - Configurable API base: `--dart-define=API_BASE_URL=...` + in-app field on login (persisted); cleartext HTTP allowed for LAN testing
 - Docs: `requirements.md`, `docs/decisions.md` (store), `docs/ertaki-portable-production-guide.md`, root `README.md`
 
@@ -46,7 +46,7 @@ Living product map of what exists today.
 
 ## Groups, membership & joins
 
-- Groups: teacher, gender, seats, مجلس day + **start→finish** time, status (`pending_approval` / `open` / …), **WhatsApp URL** (on create + brief overview), description
+- Groups: teacher, gender, seats, مجلس day + **start→finish** time, status (`pending_approval` / `open` / …), **WhatsApp URL** (on create + brief overview), description; **teacher can edit** own group params (`PATCH /groups/:id`); supervisors notified on teacher edits
 - **Teacher create group** → `pending_approval` until supervisor `PATCH /groups/:id/approval`
 - Supervisor/admin create → `open` immediately
 - Membership history (`joinedAt` / `leftAt`)
@@ -115,6 +115,7 @@ Living product map of what exists today.
 - **Teacher** alerts: daily report submitted · excuse · absence · weekly auto-gen
 - **Supervisor** alerts: teacher account approval · join requests · group-creation approval — **not** student report content
 - Notification taps **deep-link** to the matching screen
+- Any role can **mark all read** or **clear all** notifications (`POST /notifications/mark-read`, `POST /notifications/clear`)
 - In-app inbox; optional FCM when `FCM_SERVER_KEY` set
 
 ---
@@ -127,6 +128,7 @@ Living product map of what exists today.
 - **Supervisor admin (Next):** تفعيل معلمين · joins · groups (approve) · directory · policies — **no** «تقارير اليوم» / weekly tabs
 - **System Back:** nested navigators + PopScope — pops in-app routes first; non-home tab → home; home → confirm exit
 - **Swipe:** horizontal PageView between bottom-nav destinations for all roles, synced with NavigationBar
+- Hub category tiles show **unread/new count badges** (hidden when 0): joins, reports missing today, group approvals, notifications
 
 ---
 

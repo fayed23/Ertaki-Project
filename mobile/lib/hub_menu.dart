@@ -8,12 +8,13 @@ class HubCategory {
     required this.label,
     required this.onTap,
     this.subtitle,
-    this.badge,
+    this.badgeCount,
   });
   final IconData icon;
   final String label;
   final String? subtitle;
-  final String? badge;
+  /// Unread/new count. Badge is hidden when null or ≤ 0.
+  final int? badgeCount;
   final VoidCallback onTap;
 }
 
@@ -71,6 +72,8 @@ class _HubTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final count = category.badgeCount ?? 0;
+    final showBadge = count > 0;
     return SoftPanel(
       onTap: category.onTap,
       padding: const EdgeInsets.all(14),
@@ -79,18 +82,40 @@ class _HubTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: Brand.leaf.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(category.icon, color: Brand.forestMid),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Brand.leaf.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(category.icon, color: Brand.forestMid),
+                  ),
+                  if (showBadge)
+                    Positioned(
+                      top: -6,
+                      left: -6,
+                      child: Container(
+                        constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Brand.gold,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Brand.paper, width: 1.5),
+                        ),
+                        child: Text(
+                          count > 99 ? '99+' : '$count',
+                          textAlign: TextAlign.center,
+                          style: ui(size: 10, weight: FontWeight.w800, color: Brand.ink),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const Spacer(),
-              if (category.badge != null && category.badge!.isNotEmpty)
-                StatusChip(label: category.badge!, tone: ChipTone.warn),
             ],
           ),
           const Spacer(),

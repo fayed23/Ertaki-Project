@@ -563,6 +563,24 @@ class _StudentProgressState extends State<StudentProgress> {
           ),
           const SizedBox(height: 12),
           const SectionTitle('الإشعارات'),
+          if (notifs.isNotEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () async {
+                  try {
+                    final res = await widget.api.post('/notifications/clear', {});
+                    final n = (res['cleared'] as num?)?.toInt() ?? 0;
+                    if (!mounted) return;
+                    showToast(context, 'تم مسح $n إشعاراً');
+                    await _load();
+                  } catch (e) {
+                    if (mounted) showToast(context, e.toString(), error: true);
+                  }
+                },
+                child: Text('مسح كل الإشعارات', style: ui(color: Brand.danger, weight: FontWeight.w700)),
+              ),
+            ),
           if (notifs.isEmpty)
             const EmptyState(
               icon: Icons.notifications_none,

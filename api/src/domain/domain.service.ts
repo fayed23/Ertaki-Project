@@ -366,6 +366,133 @@ export class DomainService {
     return this.enrichGroup(group);
   }
 
+  async updateGroup(
+    actor: User,
+    groupId: string,
+    input: {
+      name?: string;
+      gender?: string;
+      seatCount?: number;
+      weeklySessionDay?: string;
+      weeklySessionTime?: string;
+      sessionStartTime?: string;
+      sessionEndTime?: string;
+      whatsappUrl?: string | null;
+      description?: string | null;
+    },
+  ) {
+    const group = await this.getGroup(groupId);
+    const isOwnerTeacher =
+      actor.role === UserRole.TEACHER && group.teacherId === actor.id;
+    if (!isOwnerTeacher && !this.isSupervisor(actor)) {
+      throw new ForbiddenException('تعديل المجموعة للمعلم أو المشرف فقط');
+    }
+    const before = {
+      name: group.name,
+      gender: group.gender,
+      seatCount: group.seatCount,
+      weeklySessionDay: group.weeklySessionDay,
+      sessionStartTime: group.sessionStartTime,
+      sessionEndTime: group.sessionEndTime,
+      whatsappUrl: group.whatsappUrl,
+      description: group.description,
+    };
+    if (input.name != null) {
+      const name = input.name.trim();
+      if (!name) throw new BadRequestException('اسم المجموعة مطلوب');
+      group.name = name;
+    }
+    if (input.seatCount != null) {
+      const seats = Number(input.seatCount);
+      if (!Number.isFinite(seats) || seats < 1) {
+        throw new BadRequestException('عدد المقاعد غير صالح');
+      }
+      if (seats < group.currentStudentCount) {
+        throw new BadRequestException(
+          `لا يمكن تقليل المقاعد دون عدد الطلبة الحالي (${group.currentStudentCount})`,
+        );
+      }
+      group.seatCount = seats;
+      if (
+        group.status === GroupStatus.FULL &&
+        group.currentStudentCount < seats
+      ) {
+        group.status = GroupStatus.OPEN;
+      } else if (
+        group.status === GroupStatus.OPEN &&
+        group.currentStudentCount >= seats
+      ) {
+        group.status = GroupStatus.FULL;
+      }
+    }
+    if (input.gender != null) {
+      if (
+        actor.role === UserRole.TEACHER &&
+        group.currentStudentCount > 0 &&
+        input.gender !== group.gender
+      ) {
+        throw new BadRequestException(
+          'لا يمكن تغيير جنس المجموعة وفيها طلبة — اطلب من المشرف',
+        );
+      }
+      group.gender = input.gender as GroupGender;
+    }
+    if (input.weeklySessionDay != null) {
+      group.weeklySessionDay = input.weeklySessionDay;
+    }
+    const start =
+      input.sessionStartTime ??
+      input.weeklySessionTime ??
+      undefined;
+    if (start != null) {
+      group.sessionStartTime = start;
+      group.weeklySessionTime = start;
+    }
+    if (input.sessionEndTime != null) {
+      group.sessionEndTime = input.sessionEndTime;
+    }
+    if (input.whatsappUrl !== undefined) {
+      const wa = input.whatsappUrl?.trim() || null;
+      group.whatsappUrl = wa;
+    }
+    if (input.description !== undefined) {
+      group.description = input.description?.trim() || null;
+    }
+    await this.groups.save(group);
+    await this.auditLog(
+      actor.id,
+      'group.update',
+      'group',
+      group.id,
+      before,
+      {
+        name: group.name,
+        gender: group.gender,
+        seatCount: group.seatCount,
+        weeklySessionDay: group.weeklySessionDay,
+        sessionStartTime: group.sessionStartTime,
+        sessionEndTime: group.sessionEndTime,
+        whatsappUrl: group.whatsappUrl,
+        description: group.description,
+      },
+    );
+    if (isOwnerTeacher) {
+      const supervisors = await this.users.find({
+        where: [{ role: UserRole.SUPERVISOR }, { role: UserRole.ADMIN }],
+      });
+      for (const s of supervisors) {
+        await this.notify(
+          s.id,
+          'group_updated',
+          'تعديل مجموعة',
+          `${actor.firstName} عدّل «${group.name}»`,
+          { groupId: group.id },
+        );
+      }
+    }
+    return this.enrichGroup(group);
+  }
+
   async listGroups(actor?: User) {
     const rows = await this.groups.find({ order: { createdAt: 'DESC' } });
     let filtered = rows;
@@ -1990,6 +2117,31 @@ export class DomainService {
     });
   }
 
+  async markNotificationsRead(actor: User, ids?: string[]) {
+    const qb = this.notifications
+      .createQueryBuilder()
+      .update()
+      .set({ readAt: new Date() })
+      .where('recipientId = :rid', { rid: actor.id })
+      .andWhere('readAt IS NULL');
+    if (ids?.length) {
+      qb.andWhere('id IN (:...ids)', { ids });
+    }
+    const result = await qb.execute();
+    return { marked: result.affected ?? 0 };
+  }
+
+  async clearNotifications(actor: User) {
+    const result = await this.notifications.delete({ recipientId: actor.id });
+    return { cleared: result.affected ?? 0 };
+  }
+
+  private async unreadNotificationCount(userId: string) {
+    return this.notifications.count({
+      where: { recipientId: userId, readAt: IsNull() },
+    });
+  }
+
   async teacherDashboard(actor: User) {
     if (actor.role !== UserRole.TEACHER && !this.isSupervisor(actor)) {
       throw new ForbiddenException();
@@ -2000,6 +2152,7 @@ export class DomainService {
         : await this.groups.find();
     const today = new Date().toISOString().slice(0, 10);
     const result = [];
+    let missingTotal = 0;
     for (const g of groups) {
       const members = await this.memberships.find({
         where: { groupId: g.id, leftAt: IsNull() },
@@ -2031,11 +2184,13 @@ export class DomainService {
             .andWhere('i.resolved = false')
             .getCount()
         : 0;
+      const missingToday = Math.max(0, members.length - submittedToday);
+      missingTotal += missingToday;
       result.push({
         group: g,
         studentCount: members.length,
         submittedToday,
-        missingToday: Math.max(0, members.length - submittedToday),
+        missingToday,
         openInfractions,
         todayReports,
         students: members.map((m) => ({
@@ -2046,7 +2201,24 @@ export class DomainService {
         })),
       });
     }
-    return { today, groups: result };
+    const groupIds = groups.map((g) => g.id);
+    const pendingJoins = groupIds.length
+      ? await this.joinRequests
+          .createQueryBuilder('j')
+          .where('j.groupId IN (:...groupIds)', { groupIds })
+          .andWhere('j.status = :st', { st: JoinRequestStatus.PENDING })
+          .getCount()
+      : 0;
+    const unreadNotifications = await this.unreadNotificationCount(actor.id);
+    return {
+      today,
+      groups: result,
+      badges: {
+        pendingJoins,
+        missingTodayReports: missingTotal,
+        unreadNotifications,
+      },
+    };
   }
 
   async supervisorDashboard(actor: User) {
@@ -2058,18 +2230,22 @@ export class DomainService {
       groups,
       pendingJoins,
       pendingAccounts,
+      pendingGroupApprovals,
       activeStudents,
       openInfractions,
+      unreadNotifications,
     ] = await Promise.all([
       this.users.count({ where: { role: UserRole.STUDENT } }),
       this.users.count({ where: { role: UserRole.TEACHER } }),
       this.groups.count(),
       this.joinRequests.count({ where: { status: JoinRequestStatus.PENDING } }),
       this.users.count({ where: { status: UserStatus.PENDING_APPROVAL } }),
+      this.groups.count({ where: { status: GroupStatus.PENDING_APPROVAL } }),
       this.users.count({
         where: { role: UserRole.STUDENT, status: UserStatus.ACTIVE },
       }),
       this.infractions.count({ where: { resolved: false } }),
+      this.unreadNotificationCount(actor.id),
     ]);
     return {
       today,
@@ -2078,8 +2254,15 @@ export class DomainService {
       groups,
       pendingJoins,
       pendingAccounts,
+      pendingGroupApprovals,
       activeStudents,
       openInfractions,
+      badges: {
+        pendingJoins,
+        pendingAccounts,
+        pendingGroupApprovals,
+        unreadNotifications,
+      },
     };
   }
 

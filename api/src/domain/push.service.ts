@@ -30,6 +30,7 @@ export class PushService {
         body,
         payload: payload ?? null,
         delivered: false,
+        readAt: null,
       }),
     );
 

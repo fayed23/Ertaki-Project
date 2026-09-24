@@ -56,12 +56,17 @@ class _TeacherHomeState extends State<TeacherHome> {
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
     final groups = (data?['groups'] as List<dynamic>?) ?? [];
+    final badges = (data?['badges'] as Map?) ?? {};
     int missing = 0;
     int infra = 0;
     for (final g in groups) {
       missing += (g['missingToday'] as num?)?.toInt() ?? 0;
       infra += (g['openInfractions'] as num?)?.toInt() ?? 0;
     }
+    final pendingJoins = (badges['pendingJoins'] as num?)?.toInt() ?? 0;
+    final missingReports =
+        (badges['missingTodayReports'] as num?)?.toInt() ?? missing;
+    final unreadNotifs = (badges['unreadNotifications'] as num?)?.toInt() ?? 0;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -88,8 +93,7 @@ class _TeacherHomeState extends State<TeacherHome> {
           HubCategory(
             icon: Icons.groups_outlined,
             label: 'مجموعاتي',
-            subtitle: 'موجز وتفصيلي',
-            badge: groups.isEmpty ? null : '${groups.length}',
+            subtitle: 'موجز وتفصيلي · تعديل',
             onTap: () => _open(TeacherGroupsPage(api: widget.api)),
           ),
           HubCategory(
@@ -102,6 +106,7 @@ class _TeacherHomeState extends State<TeacherHome> {
             icon: Icons.how_to_reg_outlined,
             label: 'طلبات الانضمام',
             subtitle: 'قبول أو رفض',
+            badgeCount: pendingJoins,
             onTap: () => _open(TeacherJoinsPage(api: widget.api)),
           ),
           HubCategory(
@@ -114,6 +119,7 @@ class _TeacherHomeState extends State<TeacherHome> {
             icon: Icons.insights_outlined,
             label: 'التقارير',
             subtitle: 'يومي وأسبوعي',
+            badgeCount: missingReports,
             onTap: () => _open(TeacherReportsHub(api: widget.api, today: '${data?['today'] ?? todayIso()}')),
           ),
           HubCategory(
@@ -130,11 +136,10 @@ class _TeacherHomeState extends State<TeacherHome> {
           HubCategory(
             icon: Icons.notifications_outlined,
             label: 'الإشعارات',
+            badgeCount: unreadNotifs,
             onTap: () {
               if (widget.onOpenNotifications != null) {
                 widget.onOpenNotifications!();
-              } else {
-                // fallback: switch handled by shell
               }
             },
           ),

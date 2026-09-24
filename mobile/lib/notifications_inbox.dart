@@ -23,6 +23,7 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   List<dynamic> items = [];
   bool loading = true;
+  bool clearing = false;
 
   @override
   void initState() {
@@ -43,7 +44,50 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
+  Future<void> _markAllRead() async {
+    try {
+      await widget.api.post('/notifications/mark-read', {});
+      await _load();
+      if (mounted) showToast(context, 'تم تعليم الإشعارات كمقروءة');
+    } catch (e) {
+      if (mounted) showToast(context, e.toString(), error: true);
+    }
+  }
+
+  Future<void> _clearAll() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Brand.paper,
+        title: Text('مسح كل الإشعارات؟', style: ui(weight: FontWeight.w700)),
+        content: Text('لا يمكن التراجع عن هذا الإجراء.', style: ui()),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('مسح')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => clearing = true);
+    try {
+      final res = await widget.api.post('/notifications/clear', {});
+      final n = (res['cleared'] as num?)?.toInt() ?? 0;
+      await _load();
+      if (mounted) showToast(context, 'تم مسح $n إشعاراً');
+    } catch (e) {
+      if (mounted) showToast(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => clearing = false);
+    }
+  }
+
   Future<void> _openNotification(Map<String, dynamic> item) async {
+    final id = item['id']?.toString();
+    if (id != null && item['readAt'] == null) {
+      try {
+        await widget.api.post('/notifications/mark-read', {'ids': [id]});
+      } catch (_) {}
+    }
     final type = '${item['type'] ?? ''}';
     final payload = item['payload'] is Map
         ? Map<String, dynamic>.from(item['payload'] as Map)
@@ -58,6 +102,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         reportId.isNotEmpty &&
         widget.role == 'teacher') {
       await openDailyReportDetail(context, widget.api, reportId: reportId);
+      await _load();
       return;
     }
     if (type == 'weekly_report_staff' || type == 'weekly_report') {
@@ -72,7 +117,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       if (widget.role == 'supervisor' || widget.role == 'admin') {
         page = SupervisorJoins(api: widget.api);
       }
-    } else if (type == 'group_pending_approval') {
+    } else if (type == 'group_pending_approval' || type == 'group_updated') {
       if (widget.role == 'supervisor' || widget.role == 'admin') {
         page = SupervisorGroups(api: widget.api);
       } else if (groupId != null && groupId.isNotEmpty) {
@@ -95,6 +140,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (page != null && mounted) {
       await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page!));
     }
+    await _load();
   }
 
   String? _hint(String type) {
@@ -111,6 +157,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       case 'group_pending_approval':
       case 'group_approved':
       case 'group_rejected':
+      case 'group_updated':
         return 'اضغط لفتح المجموعة';
       case 'excuse_submitted':
       case 'attendance_recorded':
@@ -124,17 +171,39 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
+    final unread = items.where((n) => (n as Map)['readAt'] == null).length;
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('الإشعارات', style: ui(size: 22, weight: FontWeight.w700)),
-          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text('الإشعارات', style: ui(size: 22, weight: FontWeight.w700)),
+              ),
+              if (items.isNotEmpty) ...[
+                TextButton(
+                  onPressed: unread == 0 ? null : _markAllRead,
+                  child: const Text('قراءة الكل'),
+                ),
+                TextButton(
+                  onPressed: clearing ? null : _clearAll,
+                  child: Text(clearing ? '…' : 'مسح الكل', style: ui(color: Brand.danger, weight: FontWeight.w700)),
+                ),
+              ],
+            ],
+          ),
+          if (unread > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('$unread غير مقروء', style: ui(size: 13, color: Brand.muted)),
+            ),
+          const SizedBox(height: 4),
           if (items.isEmpty)
             const EmptyState(
               icon: Icons.notifications_none,
-              title: 'لا إشعارات جديدة',
+              title: 'لا إشعارات',
               subtitle: 'ستظهر هنا تنبيهات القبول والملاحظات والتقارير',
             )
           else
@@ -148,14 +217,32 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       type == 'weekly_report_staff' ||
                       type == 'weekly_report');
               final tappable = hint != null && !reportLockedForSupervisor;
+              final unreadItem = item['readAt'] == null;
               return SoftPanel(
                 margin: const EdgeInsets.only(bottom: 8),
-                onTap: tappable ? () => _openNotification(item) : null,
+                onTap: tappable ? () => _openNotification(item) : () async {
+                  if (unreadItem && item['id'] != null) {
+                    await widget.api.post('/notifications/mark-read', {
+                      'ids': [item['id']],
+                    });
+                    await _load();
+                  }
+                },
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
+                        if (unreadItem)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(left: 8),
+                            decoration: const BoxDecoration(
+                              color: Brand.gold,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
                         Expanded(
                           child: Text('${item['title']}', style: ui(weight: FontWeight.w700)),
                         ),

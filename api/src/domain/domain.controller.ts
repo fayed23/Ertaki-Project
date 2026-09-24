@@ -97,6 +97,27 @@ export class DomainController {
     );
   }
 
+  @Patch('groups/:id')
+  @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  updateGroup(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string;
+      gender?: string;
+      seatCount?: number;
+      weeklySessionDay?: string;
+      weeklySessionTime?: string;
+      sessionStartTime?: string;
+      sessionEndTime?: string;
+      whatsappUrl?: string | null;
+      description?: string | null;
+    },
+  ) {
+    return this.domain.updateGroup(user, id, body);
+  }
+
   @Post('join-requests')
   @Roles(UserRole.STUDENT)
   requestJoin(@CurrentUser() user: User, @Body() body: { groupId: string }) {
@@ -449,6 +470,19 @@ export class DomainController {
   @Get('notifications')
   myNotifications(@CurrentUser() user: User) {
     return this.domain.myNotifications(user);
+  }
+
+  @Post('notifications/mark-read')
+  markNotificationsRead(
+    @CurrentUser() user: User,
+    @Body() body: { ids?: string[] },
+  ) {
+    return this.domain.markNotificationsRead(user, body.ids);
+  }
+
+  @Post('notifications/clear')
+  clearNotifications(@CurrentUser() user: User) {
+    return this.domain.clearNotifications(user);
   }
 
   @Post('device-tokens')

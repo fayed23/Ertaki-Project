@@ -256,11 +256,14 @@ class GroupDetailPage extends StatefulWidget {
 class _GroupDetailPageState extends State<GroupDetailPage> {
   bool detailed = false;
   Map<String, dynamic>? data;
+  Map<String, dynamic>? me;
   bool loading = true;
+  String titleName = '';
 
   @override
   void initState() {
     super.initState();
+    titleName = widget.groupName;
     _load();
   }
 
@@ -271,8 +274,12 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
           ? '/groups/${widget.groupId}/detailed'
           : '/groups/${widget.groupId}/brief';
       final d = await widget.api.get(path) as Map<String, dynamic>;
+      final user = await widget.api.get('/auth/me') as Map<String, dynamic>;
+      final g = d['group'] is Map ? Map<String, dynamic>.from(d['group'] as Map) : d;
       setState(() {
         data = d;
+        me = user;
+        titleName = '${g['name'] ?? widget.groupName}';
         loading = false;
       });
     } catch (e) {
@@ -281,12 +288,37 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
     }
   }
 
+  bool get _canEdit {
+    final role = '${me?['role'] ?? ''}';
+    if (role == 'supervisor' || role == 'admin') return true;
+    if (role != 'teacher') return false;
+    final g = data?['group'] is Map
+        ? Map<String, dynamic>.from(data!['group'] as Map)
+        : data;
+    return g != null && '${g['teacherId']}' == '${me?['id']}';
+  }
+
+  Future<void> _edit() async {
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => EditGroupPage(api: widget.api, groupId: widget.groupId),
+      ),
+    );
+    if (ok == true) await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.groupName, style: ui(size: 18, weight: FontWeight.w700)),
+        title: Text(titleName.isEmpty ? widget.groupName : titleName, style: ui(size: 18, weight: FontWeight.w700)),
         actions: [
+          if (_canEdit)
+            IconButton(
+              tooltip: 'تعديل المجموعة',
+              onPressed: loading ? null : _edit,
+              icon: const Icon(Icons.edit_outlined),
+            ),
           TextButton(
             onPressed: () {
               setState(() => detailed = !detailed);
@@ -400,6 +432,229 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
   }
 }
 
+
+class EditGroupPage extends StatefulWidget {
+  const EditGroupPage({super.key, required this.api, required this.groupId});
+  final ApiClient api;
+  final String groupId;
+
+  @override
+  State<EditGroupPage> createState() => _EditGroupPageState();
+}
+
+class _EditGroupPageState extends State<EditGroupPage> {
+  final nameCtrl = TextEditingController();
+  final descCtrl = TextEditingController();
+  final waCtrl = TextEditingController();
+  final seatsCtrl = TextEditingController();
+  String gender = 'men';
+  String day = 'السبت';
+  TimeOfDay start = const TimeOfDay(hour: 20, minute: 0);
+  TimeOfDay end = const TimeOfDay(hour: 21, minute: 0);
+  bool loading = true;
+  bool saving = false;
+  int currentStudents = 0;
+
+  String _fmt(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  TimeOfDay _parse(String? raw, TimeOfDay fallback) {
+    if (raw == null || !raw.contains(':')) return fallback;
+    final p = raw.split(':');
+    return TimeOfDay(hour: int.tryParse(p[0]) ?? fallback.hour, minute: int.tryParse(p[1]) ?? fallback.minute);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final d = await widget.api.get('/groups/${widget.groupId}/brief') as Map<String, dynamic>;
+      final g = d['group'] is Map ? Map<String, dynamic>.from(d['group'] as Map) : d;
+      nameCtrl.text = '${g['name'] ?? ''}';
+      descCtrl.text = '${g['description'] ?? ''}';
+      waCtrl.text = '${g['whatsappUrl'] ?? ''}';
+      seatsCtrl.text = '${g['seatCount'] ?? 20}';
+      gender = '${g['gender'] ?? 'men'}';
+      day = '${g['weeklySessionDay'] ?? 'السبت'}';
+      start = _parse('${g['sessionStartTime'] ?? g['weeklySessionTime']}', start);
+      end = _parse('${g['sessionEndTime']}', end);
+      currentStudents = (g['currentStudentCount'] as num?)?.toInt() ?? 0;
+      setState(() => loading = false);
+    } catch (e) {
+      setState(() => loading = false);
+      if (mounted) showToast(context, e.toString(), error: true);
+    }
+  }
+
+  Future<void> _pick(bool isStart) async {
+    final v = await showTimePicker(context: context, initialTime: isStart ? start : end);
+    if (v == null) return;
+    setState(() {
+      if (isStart) {
+        start = v;
+      } else {
+        end = v;
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    if (nameCtrl.text.trim().isEmpty) {
+      showToast(context, 'اسم المجموعة مطلوب', error: true);
+      return;
+    }
+    final seats = int.tryParse(seatsCtrl.text.trim()) ?? 0;
+    if (seats < 1) {
+      showToast(context, 'عدد المقاعد غير صالح', error: true);
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      await widget.api.patch('/groups/${widget.groupId}', {
+        'name': nameCtrl.text.trim(),
+        'gender': gender,
+        'seatCount': seats,
+        'weeklySessionDay': day,
+        'sessionStartTime': _fmt(start),
+        'sessionEndTime': _fmt(end),
+        'weeklySessionTime': _fmt(start),
+        'description': descCtrl.text.trim(),
+        'whatsappUrl': waCtrl.text.trim(),
+      });
+      if (!mounted) return;
+      showToast(context, 'تم حفظ تعديلات المجموعة');
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) showToast(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    nameCtrl.dispose();
+    descCtrl.dispose();
+    waCtrl.dispose();
+    seatsCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('تعديل المجموعة', style: ui(size: 18, weight: FontWeight.w700))),
+      body: Atmosphere(
+        child: loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  SoftPanel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'عدّل بيانات المجموعة · الطلبة الحاليون: $currentStudents',
+                          style: ui(size: 13, color: Brand.muted),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: nameCtrl,
+                          decoration: const InputDecoration(labelText: 'اسم المجموعة'),
+                        ),
+                        const SizedBox(height: 12),
+                        Text('جنس الطلبة', style: ui(size: 13, color: Brand.muted)),
+                        const SizedBox(height: 6),
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(value: 'men', label: Text('رجال'), icon: Icon(Icons.man_rounded)),
+                            ButtonSegment(value: 'women', label: Text('نساء'), icon: Icon(Icons.woman_rounded)),
+                          ],
+                          selected: {gender},
+                          onSelectionChanged: currentStudents > 0
+                              ? null
+                              : (s) => setState(() => gender = s.first),
+                        ),
+                        if (currentStudents > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              'لا يمكن تغيير الجنس وفي المجموعة طلبة',
+                              style: ui(size: 12, color: Brand.muted),
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: seatsCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'أقصى عدد طلبة (المقاعد)',
+                            helperText: 'لا يقل عن $currentStudents',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: day,
+                          decoration: const InputDecoration(labelText: 'يوم المجلس'),
+                          items: const [
+                            'السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة',
+                          ].map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+                          onChanged: (v) => setState(() => day = v ?? day),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => _pick(true),
+                                child: Text('بداية ${_fmt(start)}'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => _pick(false),
+                                child: Text('نهاية ${_fmt(end)}'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: waCtrl,
+                          textDirection: TextDirection.ltr,
+                          keyboardType: TextInputType.url,
+                          decoration: const InputDecoration(
+                            labelText: 'رابط واتساب المجموعة',
+                            hintText: 'https://chat.whatsapp.com/...',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: descCtrl,
+                          maxLines: 3,
+                          decoration: const InputDecoration(labelText: 'وصف موجز'),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: saving ? null : _save,
+                          child: Text(saving ? 'جاري الحفظ…' : 'حفظ التعديلات'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
 class CreateGroupPage extends StatefulWidget {
   const CreateGroupPage({super.key, required this.api});
   final ApiClient api;
@@ -412,6 +667,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   final waCtrl = TextEditingController();
+  final seatsCtrl = TextEditingController(text: '20');
   String gender = 'men';
   String day = 'السبت';
   TimeOfDay start = const TimeOfDay(hour: 20, minute: 0);
@@ -443,9 +699,11 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     }
     setState(() => saving = true);
     try {
+      final seats = int.tryParse(seatsCtrl.text.trim()) ?? 20;
       await widget.api.post('/groups', {
         'name': nameCtrl.text.trim(),
         'gender': gender,
+        'seatCount': seats < 1 ? 20 : seats,
         'weeklySessionDay': day,
         'sessionStartTime': _fmt(start),
         'sessionEndTime': _fmt(end),
@@ -468,6 +726,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     nameCtrl.dispose();
     descCtrl.dispose();
     waCtrl.dispose();
+    seatsCtrl.dispose();
     super.dispose();
   }
 
@@ -502,6 +761,12 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     ],
                     selected: {gender},
                     onSelectionChanged: (s) => setState(() => gender = s.first),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: seatsCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'أقصى عدد طلبة (المقاعد)'),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(

@@ -60,6 +60,12 @@ class _SupervisorHomeState extends State<SupervisorHome> {
     if (loading) return const Center(child: CircularProgressIndicator());
     final pendingJoins = (data?['pendingJoins'] as num?)?.toInt() ?? 0;
     final pendingAccounts = (data?['pendingAccounts'] as num?)?.toInt() ?? 0;
+    final badges = (data?['badges'] as Map?) ?? {};
+    final pendingGroupApprovals =
+        (badges['pendingGroupApprovals'] as num?)?.toInt() ??
+            (data?['pendingGroupApprovals'] as num?)?.toInt() ??
+            0;
+    final unreadNotifs = (badges['unreadNotifications'] as num?)?.toInt() ?? 0;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -81,20 +87,21 @@ class _SupervisorHomeState extends State<SupervisorHome> {
             icon: Icons.verified_user_outlined,
             label: 'تفعيل المعلمين',
             subtitle: 'موافقة التسجيل',
-            badge: pendingAccounts > 0 ? '$pendingAccounts' : null,
+            badgeCount: pendingAccounts,
             onTap: widget.onGoJoins,
           ),
           HubCategory(
             icon: Icons.how_to_reg_outlined,
             label: 'طلبات الانضمام',
             subtitle: 'قبول أو رفض',
-            badge: pendingJoins > 0 ? '$pendingJoins' : null,
+            badgeCount: pendingJoins,
             onTap: () => _open(SupervisorJoins(api: widget.api)),
           ),
           HubCategory(
             icon: Icons.groups_outlined,
             label: 'المجموعات',
             subtitle: 'موافقة الإنشاء · موجز/تفصيلي',
+            badgeCount: pendingGroupApprovals,
             onTap: () => _open(Scaffold(
               appBar: AppBar(title: Text('المجموعات', style: ui(size: 18, weight: FontWeight.w700))),
               body: Atmosphere(child: SupervisorGroups(api: widget.api)),
@@ -109,6 +116,7 @@ class _SupervisorHomeState extends State<SupervisorHome> {
           HubCategory(
             icon: Icons.notifications_outlined,
             label: 'الإشعارات',
+            badgeCount: unreadNotifs,
             onTap: () => widget.onOpenNotifications?.call(),
           ),
         ],
