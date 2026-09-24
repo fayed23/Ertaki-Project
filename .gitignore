@@ -13,3 +13,4 @@ mobile/.dart_tool
 mobile/build
 mobile/.flutter-plugins-dependencies
 api/ertaki.dev.sqlite
+mobile/android/app/.cxx/
