@@ -13,7 +13,7 @@ Living product map of what exists today.
 - Self-host path: no SaaS seat limits; JWT + bcrypt auth
 - Try Live ports (cloud): API `43124`, admin `43123`, Flutter web `43125`
 - Public GitHub: https://github.com/fayed23/Ertaki-Project
-- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.10-apk`
+- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.11-apk`
 - Configurable API base: `--dart-define=API_BASE_URL=...` + in-app field on login (persisted); cleartext HTTP allowed for LAN testing
 - Docs: `requirements.md`, `docs/decisions.md` (store), `docs/ertaki-portable-production-guide.md`, root `README.md`
 
@@ -27,7 +27,7 @@ Living product map of what exists today.
 - Seeds (password `password123`): supervisor `0500000001`, teacher `0500000002`, student `0500000003` (+ `0500000004`)
 - Flutter web demo: `?phone=…&auto=1`
 - Arabic RTL everywhere; Amiri for brand «ارتق», Cairo for UI
-- Branding: launcher + in-app mark from `assets/branding/app_logo.png`; login bottom-center + About (i) use `assets/branding/GroupLogo.png`
+- Branding: launcher + in-app mark from transparent `assets/branding/app_logo.png` (adaptive bg `#0F3D2E`); login bottom-center + About (i) use transparent `assets/branding/GroupLogo.png` (no white box); teacher/supervisor hub shows `GroupLogo` only after scrolling down (tied to hub scroll content — hidden at top)
 
 ---
 
