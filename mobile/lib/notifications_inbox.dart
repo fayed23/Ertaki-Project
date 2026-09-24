@@ -121,6 +121,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
       if (widget.role == 'teacher') {
         page = WeeklyReportsPage(api: widget.api);
       }
+    } else if (type == 'trimestrial_report_staff') {
+      page = TrimestrialReportsPage(api: widget.api);
     } else if (type == 'join_request') {
       page = widget.role == 'teacher'
           ? TeacherJoinsPage(api: widget.api)
@@ -162,6 +164,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
       case 'weekly_report_staff':
       case 'weekly_report':
         return 'اضغط لفتح التقارير الأسبوعية';
+      case 'trimestrial_report_staff':
+        return 'اضغط لفتح التقارير الفصلية';
       case 'join_request':
         return 'اضغط لمراجعة طلب الانضمام';
       case 'account_pending_approval':

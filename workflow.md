@@ -13,7 +13,7 @@ Living product map of what exists today.
 - Self-host path: no SaaS seat limits; JWT + bcrypt auth
 - Try Live ports (cloud): API `43124`, admin `43123`, Flutter web `43125`
 - Public GitHub: https://github.com/fayed23/Ertaki-Project
-- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.12-apk`
+- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.13-apk`
 - Configurable API base: `--dart-define=API_BASE_URL=...` + in-app field on login (persisted); cleartext HTTP allowed for LAN testing
 - Docs: `requirements.md`, `docs/decisions.md` (store), `docs/ertaki-portable-production-guide.md`, root `README.md`
 
@@ -67,9 +67,10 @@ Living product map of what exists today.
 - Quran dataset: `mobile/assets/quran/qalun_surahs.json` + `api/data/quran/` — **قالون عن نافع** (6214 āyahs) from [quran-meta](https://github.com/quran-center/quran-meta) `QalunLists.ts` / KFGQPC QalounData (not Ḥafṣ)
 - **No edit after submit**
 - Visibility (locked):
-  - **Teacher** of the student’s group: list + full detail + `daily_report_submitted` notification
+  - **Teacher** of the student’s group: calendar + day list (grouped by group) + full detail + `daily_report_submitted` notification
   - **Supervisor: no** daily report list, detail, dash widgets, or report notifications
   - **Student:** own reports only; never peers
+- Retention: after weekly generation for a week, those dailies are **deleted** from storage
 - Content-based تقصير via policies — not clock-only missing-report infractions
 
 ---
@@ -78,6 +79,8 @@ Living product map of what exists today.
 
 - **Primary trigger:** teacher `POST /attendance/weekly` after saving مجلس التسميع attendance → generate/update each student’s weekly report for that Sat–Fri week
 - PDF «التقرير الأسبوعي» fields: اسم الطالب · حضرت مجلس التسميع نعم/لا · عدّادات لم أرسل التقرير / لم أحفظ القسط / لم أكرر 50 / لم أكرر في مجلس واحد / لم آتِ بورد المراجعة (from that week’s dailies + attendance)
+- After weekly generation: **daily reports for that week are deleted** (retention: only weeklies remain for the period)
+- Teacher list: **grouped by group**
 - Cron Sat 00:15 is **fallback only** (students who already have weekly attendance that week but still lack a report)
 - **Teacher only:** brief + detailed; staff notify after attendance save
 - **Supervisor: no** weekly list/detail/notifications
@@ -85,9 +88,21 @@ Living product map of what exists today.
 
 ---
 
+## Trimestrial report (التقرير الفصلي)
+
+- Every **3 months** (calendar quarters Africa/Algiers: Jan–Mar · Apr–Jun · Jul–Sep · Oct–Dec)
+- Cron: 1 Jan/Apr/Jul/Oct 00:30 — close previous trimester: **delete weeklies** in that span, generate **trimestrial per student/group** aggregating all weekly fields
+- Manual: `POST /trimestrial-reports/auto-generate` (teacher/supervisor/admin)
+- List: `GET /trimestrial-reports` — response grouped by group (`groups[]`)
+- **Teachers and supervisors** can view (their scope); students do not list trimestrials
+- Retention chain: daily → weekly → trimestrial
+
+---
+
 ## Attendance & excuses
 
-- Teacher marks weekly مجلس attendance (UI copy: **أسبوعي** / حفظ الحضور الأسبوعي — not daily); save via `/attendance/weekly` also builds weekly reports
+- Teacher marks weekly مجلس attendance (UI copy: **أسبوعي** / حفظ الحضور الأسبوعي — not daily); save via `/attendance/weekly` also builds weekly reports and wipes that week’s dailies
+- Teacher **attendance calendar**: tap a day → that day’s attendance **grouped by group**; separate screen to record weekly مجلس
 - Student absence excuse; staff review
 - Unexcused absence can create تقصير per policy
 - Staff (+ student) notified on excused/unexcused recording
@@ -114,8 +129,8 @@ Living product map of what exists today.
 
 - Near-midnight **reminders** for students without today’s report (default Africa/Algiers 23:59)
 - Final reminder ~15 minutes before close
-- **Teacher** alerts: daily report submitted · excuse · absence · weekly auto-gen
-- **Supervisor** alerts: teacher account approval · join requests · group-creation approval — **not** student report content
+- **Teacher** alerts: daily report submitted · excuse · absence · weekly auto-gen · trimestrial ready
+- **Supervisor** alerts: teacher account approval · join requests · group-creation approval · **trimestrial ready** — **not** student daily/weekly report content
 - Notification taps **deep-link** to the matching screen
 - Any role can **mark all read** or **clear all** notifications (`POST /notifications/mark-read`, `POST /notifications/clear`); swipe left/right on a row deletes one (`DELETE /notifications/:id`)
 - In-app inbox; optional FCM when `FCM_SERVER_KEY` set
@@ -125,8 +140,8 @@ Living product map of what exists today.
 ## Dashboards & UX
 
 - **Student:** first-run groups catalog (locked shell) → home CTA report; notes; progress + weekly confirm
-- **Teacher:** category hub home (مجموعات، طلبة، طلبات، حضور، تقارير، إنشاء، إشعارات); students **nested inside** each group card (not sibling top-level cards); light brand Atmosphere on all category pages (no black voids); group brief/detailed + WhatsApp; weekly PDF-format reports; attendance weekly copy
-- **Supervisor Flutter:** category hub (تفعيل، انضمام، مجموعات، دليل، إشعارات); **no** daily/weekly report screens
+- **Teacher:** category hub home (مجموعات، طلبة، طلبات، حضور، تقارير، إنشاء، إشعارات); students **nested inside** each group card (not sibling top-level cards); light brand Atmosphere on all category pages (no black voids); group brief/detailed + WhatsApp; **reports calendar** (day → grouped by group) + weekly (grouped by group) + **trimestrial**; attendance calendar + weekly mark
+- **Supervisor Flutter:** category hub (تفعيل، انضمام، مجموعات، دليل، **تقارير فصلية**، إشعارات); **no** daily/weekly report screens (trimestrial OK)
 - **Supervisor admin (Next):** تفعيل معلمين · joins · groups (approve) · directory · policies — **no** «تقارير اليوم» / weekly tabs
 - **System Back:** nested navigators + PopScope — pops in-app routes first; non-home tab → home; home → confirm exit
 - **Swipe:** horizontal PageView between bottom-nav destinations for all roles, synced with NavigationBar

@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import {
   GroupGender,
   GroupStatus,
@@ -26,6 +26,7 @@ import { GroupMembership } from '../entities/group-membership.entity';
 import { JoinRequest } from '../entities/join-request.entity';
 import { DailyReport } from '../entities/daily-report.entity';
 import { WeeklyReport } from '../entities/weekly-report.entity';
+import { TrimestrialReport } from '../entities/trimestrial-report.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { AbsenceExcuseRequest } from '../entities/absence-excuse-request.entity';
 import { StudentNote } from '../entities/student-note.entity';
@@ -51,6 +52,8 @@ export class DomainService {
     private readonly dailyReports: Repository<DailyReport>,
     @InjectRepository(WeeklyReport)
     private readonly weeklyReports: Repository<WeeklyReport>,
+    @InjectRepository(TrimestrialReport)
+    private readonly trimestrialReports: Repository<TrimestrialReport>,
     @InjectRepository(Attendance)
     private readonly attendance: Repository<Attendance>,
     @InjectRepository(AbsenceExcuseRequest)
@@ -1088,17 +1091,30 @@ export class DomainService {
    */
   async listDailyReports(
     actor: User,
-    filters: { studentId?: string; reportDate?: string; groupId?: string },
+    filters: {
+      studentId?: string;
+      reportDate?: string;
+      groupId?: string;
+      from?: string;
+      to?: string;
+    },
   ) {
     let rows: DailyReport[];
+    const applyRange = (qb: ReturnType<typeof this.dailyReports.createQueryBuilder>) => {
+      if (filters.reportDate) {
+        qb.andWhere('r.reportDate = :d', { d: filters.reportDate });
+      } else {
+        if (filters.from) qb.andWhere('r.reportDate >= :from', { from: filters.from });
+        if (filters.to) qb.andWhere('r.reportDate <= :to', { to: filters.to });
+      }
+      return qb;
+    };
     if (actor.role === UserRole.STUDENT) {
-      rows = await this.dailyReports.find({
-        where: {
-          studentId: actor.id,
-          ...(filters.reportDate ? { reportDate: filters.reportDate } : {}),
-        },
-        order: { reportDate: 'DESC' },
-      });
+      const qb = this.dailyReports
+        .createQueryBuilder('r')
+        .where('r.studentId = :sid', { sid: actor.id });
+      applyRange(qb);
+      rows = await qb.orderBy('r.reportDate', 'DESC').take(400).getMany();
       return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
     }
     if (this.isSupervisor(actor)) {
@@ -1109,13 +1125,12 @@ export class DomainService {
     this.requireTeacher(actor);
     if (filters.studentId) {
       await this.assertTeacherOwnsStudent(actor, filters.studentId);
-      rows = await this.dailyReports.find({
-        where: {
-          studentId: filters.studentId,
-          ...(filters.reportDate ? { reportDate: filters.reportDate } : {}),
-        },
-        order: { reportDate: 'DESC' },
-      });
+      const qb = this.dailyReports
+        .createQueryBuilder('r')
+        .leftJoinAndSelect('r.student', 'student')
+        .where('r.studentId = :sid', { sid: filters.studentId });
+      applyRange(qb);
+      rows = await qb.orderBy('r.reportDate', 'DESC').take(400).getMany();
       return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
     }
     const myGroups = await this.groups.find({
@@ -1128,19 +1143,22 @@ export class DomainService {
     }
     if (!groupId && ids.length === 1) groupId = ids[0];
     if (!groupId) {
+      if (!ids.length) return [];
       const memberIds = (
         await this.memberships.find({
           where: ids.map((id) => ({ groupId: id, leftAt: IsNull() })),
         })
       ).map((m) => m.userId);
       if (!memberIds.length) return [];
-      rows = await this.dailyReports
+      const qb = this.dailyReports
         .createQueryBuilder('r')
         .leftJoinAndSelect('r.student', 'student')
-        .where('r.studentId IN (:...memberIds)', { memberIds })
+        .where('r.studentId IN (:...memberIds)', { memberIds });
+      applyRange(qb);
+      rows = await qb
         .orderBy('r.reportDate', 'DESC')
         .addOrderBy('r.submittedAt', 'DESC')
-        .take(200)
+        .take(400)
         .getMany();
       return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
     }
@@ -1153,13 +1171,11 @@ export class DomainService {
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.student', 'student')
       .where('r.studentId IN (:...memberIds)', { memberIds });
-    if (filters.reportDate) {
-      qb.andWhere('r.reportDate = :d', { d: filters.reportDate });
-    }
+    applyRange(qb);
     rows = await qb
       .orderBy('r.reportDate', 'DESC')
       .addOrderBy('r.submittedAt', 'DESC')
-      .take(200)
+      .take(400)
       .getMany();
     return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
   }
@@ -1533,16 +1549,59 @@ export class DomainService {
     return saved;
   }
 
-  listAttendance(actor: User, groupId?: string, sessionDate?: string) {
+  async listAttendance(
+    actor: User,
+    groupId?: string,
+    sessionDate?: string,
+    from?: string,
+    to?: string,
+  ) {
     this.requireStaff(actor);
-    return this.attendance.find({
-      where: {
-        ...(groupId ? { groupId } : {}),
-        ...(sessionDate ? { sessionDate } : {}),
-      },
-      order: { sessionDate: 'DESC' },
-      take: 300,
-    });
+    let allowedGroupIds: string[] | null = null;
+    if (actor.role === UserRole.TEACHER) {
+      const myGroups = await this.groups.find({ where: { teacherId: actor.id } });
+      allowedGroupIds = myGroups.map((g) => g.id);
+      if (!allowedGroupIds.length) return [];
+      if (groupId && !allowedGroupIds.includes(groupId)) {
+        throw new ForbiddenException();
+      }
+    }
+    const qb = this.attendance
+      .createQueryBuilder('a')
+      .leftJoinAndSelect('a.student', 'student')
+      .leftJoinAndSelect('a.group', 'group');
+    if (groupId) {
+      qb.andWhere('a.groupId = :groupId', { groupId });
+    } else if (allowedGroupIds) {
+      qb.andWhere('a.groupId IN (:...gids)', { gids: allowedGroupIds });
+    }
+    if (sessionDate) {
+      qb.andWhere('a.sessionDate = :sessionDate', { sessionDate });
+    } else {
+      if (from) qb.andWhere('a.sessionDate >= :from', { from });
+      if (to) qb.andWhere('a.sessionDate <= :to', { to });
+    }
+    const rows = await qb
+      .orderBy('a.sessionDate', 'DESC')
+      .addOrderBy('a.createdAt', 'DESC')
+      .take(500)
+      .getMany();
+    return rows.map((a) => ({
+      id: a.id,
+      studentId: a.studentId,
+      studentName: a.student
+        ? `${a.student.firstName} ${a.student.lastName}`
+        : null,
+      groupId: a.groupId,
+      groupName: a.group?.name ?? null,
+      sessionDate: a.sessionDate,
+      status: a.status,
+      arrivedLate: a.arrivedLate,
+      leftEarly: a.leftEarly,
+      note: a.note,
+      recordedById: a.recordedById,
+      createdAt: a.createdAt,
+    }));
   }
 
   async requestExcuse(
@@ -1761,6 +1820,13 @@ export class DomainService {
       existing = this.weeklyReports.create(payload);
     }
     const saved = await this.weeklyReports.save(existing);
+    await this.dailyReports
+      .createQueryBuilder()
+      .delete()
+      .where('studentId = :studentId', { studentId })
+      .andWhere('reportDate >= :start', { start: weekStartDate })
+      .andWhere('reportDate <= :end', { end: weekEndDate })
+      .execute();
     if (!opts?.silent && wasNew) {
       await this.notify(
         studentId,
@@ -2082,6 +2148,352 @@ export class DomainService {
       throw new ForbiddenException();
     }
     return this.formatWeekly(report, mode);
+  }
+
+  /** Calendar quarters (Africa/Algiers): Jan–Mar, Apr–Jun, Jul–Sep, Oct–Dec. */
+  private trimesterBoundsForDate(isoDate: string) {
+    const d = new Date(`${isoDate}T12:00:00Z`);
+    const year = d.getUTCFullYear();
+    const month = d.getUTCMonth(); // 0–11
+    const q = Math.floor(month / 3);
+    const startMonth = q * 3;
+    const start = new Date(Date.UTC(year, startMonth, 1, 12));
+    const end = new Date(Date.UTC(year, startMonth + 3, 0, 12));
+    const iso = (x: Date) => x.toISOString().slice(0, 10);
+    return {
+      periodStart: iso(start),
+      periodEnd: iso(end),
+      quarter: q + 1,
+      year,
+    };
+  }
+
+  private previousTrimesterBounds(timezone = 'Africa/Algiers') {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = Object.fromEntries(
+      fmt.formatToParts(new Date()).map((p) => [p.type, p.value]),
+    );
+    const today = `${parts.year}-${parts.month}-${parts.day}`;
+    const current = this.trimesterBoundsForDate(today);
+    const curStart = new Date(`${current.periodStart}T12:00:00Z`);
+    curStart.setUTCDate(curStart.getUTCDate() - 1);
+    return this.trimesterBoundsForDate(curStart.toISOString().slice(0, 10));
+  }
+
+  private formatTrimestrial(t: TrimestrialReport) {
+    const student = t.student;
+    return {
+      id: t.id,
+      studentId: t.studentId,
+      studentName: student
+        ? `${student.firstName} ${student.lastName}`
+        : null,
+      groupId: t.groupId,
+      groupName: t.group?.name ?? null,
+      periodStartDate: t.periodStartDate,
+      periodEndDate: t.periodEndDate,
+      weeksCount: t.weeksCount,
+      dailyReportsSubmitted: t.dailyReportsSubmitted,
+      quotaDaysMet: t.quotaDaysMet,
+      fiftyRepsDaysMet: t.fiftyRepsDaysMet,
+      presentSessions: t.presentSessions,
+      excusedAbsences: t.excusedAbsences,
+      unexcusedAbsences: t.unexcusedAbsences,
+      missedDailyReports: t.missedDailyReports,
+      missedQuota: t.missedQuota,
+      missedFiftyReps: t.missedFiftyReps,
+      missedSingleSitting: t.missedSingleSitting,
+      missedReview: t.missedReview,
+      weeksAttendedMajlis: t.weeksAttendedMajlis,
+      summaryJson: t.summaryJson,
+      generatedAt: t.generatedAt,
+    };
+  }
+
+  /**
+   * Close a trimester: aggregate weeklies → trimestrial per student/group,
+   * then delete those weekly reports. Daily reports for that span are already
+   * gone after each weekly generation.
+   */
+  async generateTrimestrialReports(
+    actor: User | null,
+    periodStartDate?: string,
+    periodEndDate?: string,
+  ) {
+    if (actor) {
+      if (
+        actor.role !== UserRole.TEACHER &&
+        actor.role !== UserRole.SUPERVISOR &&
+        actor.role !== UserRole.ADMIN
+      ) {
+        throw new ForbiddenException();
+      }
+    }
+    const bounds =
+      periodStartDate && periodEndDate
+        ? { periodStart: periodStartDate, periodEnd: periodEndDate }
+        : this.previousTrimesterBounds();
+    const weeklies = await this.weeklyReports
+      .createQueryBuilder('w')
+      .leftJoinAndSelect('w.student', 'student')
+      .leftJoinAndSelect('w.group', 'group')
+      .where('w.weekStartDate >= :start', { start: bounds.periodStart })
+      .andWhere('w.weekEndDate <= :end', { end: bounds.periodEnd })
+      .getMany();
+    if (!weeklies.length) {
+      return {
+        periodStart: bounds.periodStart,
+        periodEnd: bounds.periodEnd,
+        generated: 0,
+        deletedWeeklies: 0,
+        reports: [],
+      };
+    }
+    const byKey = new Map<string, WeeklyReport[]>();
+    for (const w of weeklies) {
+      const key = `${w.studentId}::${w.groupId ?? ''}`;
+      const list = byKey.get(key) ?? [];
+      list.push(w);
+      byKey.set(key, list);
+    }
+    const created: TrimestrialReport[] = [];
+    for (const [, rows] of byKey) {
+      const first = rows[0];
+      let missedDailyReports = 0;
+      let missedQuota = 0;
+      let missedFiftyReps = 0;
+      let missedSingleSitting = 0;
+      let missedReview = 0;
+      let weeksAttendedMajlis = 0;
+      const weekSnapshots: Record<string, unknown>[] = [];
+      for (const w of rows) {
+        const formatted = this.formatWeekly(w, 'detailed');
+        missedDailyReports += Number(formatted.missedDailyReports ?? 0);
+        missedQuota += Number(formatted.missedQuota ?? 0);
+        missedFiftyReps += Number(formatted.missedFiftyReps ?? 0);
+        missedSingleSitting += Number(formatted.missedSingleSitting ?? 0);
+        missedReview += Number(formatted.missedReview ?? 0);
+        if (formatted.attendedMajlis) weeksAttendedMajlis++;
+        weekSnapshots.push({
+          weeklyReportId: w.id,
+          weekStartDate: w.weekStartDate,
+          weekEndDate: w.weekEndDate,
+          attendedMajlis: formatted.attendedMajlis,
+          missedDailyReports: formatted.missedDailyReports,
+          missedQuota: formatted.missedQuota,
+          missedFiftyReps: formatted.missedFiftyReps,
+          missedSingleSitting: formatted.missedSingleSitting,
+          missedReview: formatted.missedReview,
+          dailyReportsSubmitted: w.dailyReportsSubmitted,
+          quotaDaysMet: w.quotaDaysMet,
+          fiftyRepsDaysMet: w.fiftyRepsDaysMet,
+          presentSessions: w.presentSessions,
+          excusedAbsences: w.excusedAbsences,
+          unexcusedAbsences: w.unexcusedAbsences,
+        });
+      }
+      let existing = await this.trimestrialReports.findOne({
+        where: {
+          studentId: first.studentId,
+          periodStartDate: bounds.periodStart,
+          ...(first.groupId
+            ? { groupId: first.groupId }
+            : { groupId: IsNull() }),
+        },
+      });
+      const payload = {
+        studentId: first.studentId,
+        groupId: first.groupId,
+        periodStartDate: bounds.periodStart,
+        periodEndDate: bounds.periodEnd,
+        weeksCount: rows.length,
+        dailyReportsSubmitted: rows.reduce(
+          (s, w) => s + w.dailyReportsSubmitted,
+          0,
+        ),
+        quotaDaysMet: rows.reduce((s, w) => s + w.quotaDaysMet, 0),
+        fiftyRepsDaysMet: rows.reduce((s, w) => s + w.fiftyRepsDaysMet, 0),
+        presentSessions: rows.reduce((s, w) => s + w.presentSessions, 0),
+        excusedAbsences: rows.reduce((s, w) => s + w.excusedAbsences, 0),
+        unexcusedAbsences: rows.reduce((s, w) => s + w.unexcusedAbsences, 0),
+        missedDailyReports,
+        missedQuota,
+        missedFiftyReps,
+        missedSingleSitting,
+        missedReview,
+        weeksAttendedMajlis,
+        summaryJson: {
+          weeklyReportIds: rows.map((w) => w.id),
+          weeks: weekSnapshots,
+        },
+        generatedAt: new Date(),
+      };
+      if (existing) {
+        Object.assign(existing, payload);
+      } else {
+        existing = this.trimestrialReports.create(payload);
+      }
+      created.push(await this.trimestrialReports.save(existing));
+    }
+    const weeklyIds = weeklies.map((w) => w.id);
+    await this.weeklyReports.delete({ id: In(weeklyIds) });
+
+    const groupIds = [
+      ...new Set(created.map((c) => c.groupId).filter(Boolean) as string[]),
+    ];
+    for (const gid of groupIds) {
+      const group = await this.groups.findOne({ where: { id: gid } });
+      const count = created.filter((c) => c.groupId === gid).length;
+      if (group?.teacherId) {
+        await this.notify(
+          group.teacherId,
+          'trimestrial_report_staff',
+          'تقارير فصلية جاهزة',
+          `تم توليد ${count} تقريراً فصلياً · ${bounds.periodStart} — ${bounds.periodEnd}`,
+          {
+            groupId: gid,
+            periodStart: bounds.periodStart,
+            periodEnd: bounds.periodEnd,
+            count,
+          },
+        );
+      }
+    }
+    const supervisors = await this.users.find({
+      where: { role: UserRole.SUPERVISOR },
+    });
+    for (const s of supervisors) {
+      await this.notify(
+        s.id,
+        'trimestrial_report_staff',
+        'تقارير فصلية جاهزة',
+        `تم توليد ${created.length} تقريراً فصلياً للفترة ${bounds.periodStart} — ${bounds.periodEnd}`,
+        {
+          periodStart: bounds.periodStart,
+          periodEnd: bounds.periodEnd,
+          count: created.length,
+        },
+      );
+    }
+    if (actor) {
+      await this.auditLog(
+        actor.id,
+        'trimestrial.generate',
+        'trimestrial_report',
+        null,
+        null,
+        {
+          periodStart: bounds.periodStart,
+          periodEnd: bounds.periodEnd,
+          generated: created.length,
+          deletedWeeklies: weeklyIds.length,
+        },
+      );
+    }
+    const full = await this.trimestrialReports.find({
+      where: { id: In(created.map((c) => c.id)) },
+    });
+    return {
+      periodStart: bounds.periodStart,
+      periodEnd: bounds.periodEnd,
+      generated: created.length,
+      deletedWeeklies: weeklyIds.length,
+      reports: full.map((t) => this.formatTrimestrial(t)),
+    };
+  }
+
+  async autoGenerateTrimestrialReports(timezone = 'Africa/Algiers') {
+    const bounds = this.previousTrimesterBounds(timezone);
+    return this.generateTrimestrialReports(
+      null,
+      bounds.periodStart,
+      bounds.periodEnd,
+    );
+  }
+
+  async listTrimestrialReports(actor: User, groupId?: string) {
+    if (
+      actor.role !== UserRole.TEACHER &&
+      !this.isSupervisor(actor) &&
+      actor.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException(
+        'التقارير الفصلية متاحة للمعلم والمشرف',
+      );
+    }
+    let rows: TrimestrialReport[];
+    if (actor.role === UserRole.TEACHER) {
+      const groups = await this.groups.find({ where: { teacherId: actor.id } });
+      const gids = groups.map((g) => g.id);
+      if (!gids.length) return { groups: [] };
+      if (groupId && !gids.includes(groupId)) throw new ForbiddenException();
+      const filterIds = groupId ? [groupId] : gids;
+      rows = await this.trimestrialReports
+        .createQueryBuilder('t')
+        .leftJoinAndSelect('t.student', 'student')
+        .leftJoinAndSelect('t.group', 'group')
+        .where('t.groupId IN (:...gids)', { gids: filterIds })
+        .orderBy('t.periodStartDate', 'DESC')
+        .addOrderBy('group.name', 'ASC')
+        .addOrderBy('student.firstName', 'ASC')
+        .take(500)
+        .getMany();
+    } else {
+      const qb = this.trimestrialReports
+        .createQueryBuilder('t')
+        .leftJoinAndSelect('t.student', 'student')
+        .leftJoinAndSelect('t.group', 'group');
+      if (groupId) qb.where('t.groupId = :groupId', { groupId });
+      rows = await qb
+        .orderBy('t.periodStartDate', 'DESC')
+        .addOrderBy('group.name', 'ASC')
+        .addOrderBy('student.firstName', 'ASC')
+        .take(500)
+        .getMany();
+    }
+    const byGroup = new Map<
+      string,
+      {
+        groupId: string | null;
+        groupName: string | null;
+        reports: ReturnType<DomainService['formatTrimestrial']>[];
+      }
+    >();
+    for (const t of rows) {
+      const key = t.groupId ?? '_none';
+      const bucket = byGroup.get(key) ?? {
+        groupId: t.groupId,
+        groupName: t.group?.name ?? null,
+        reports: [],
+      };
+      bucket.reports.push(this.formatTrimestrial(t));
+      byGroup.set(key, bucket);
+    }
+    return {
+      groups: [...byGroup.values()],
+      flat: rows.map((t) => this.formatTrimestrial(t)),
+    };
+  }
+
+  async getTrimestrialReport(actor: User, id: string) {
+    if (
+      actor.role !== UserRole.TEACHER &&
+      !this.isSupervisor(actor) &&
+      actor.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException();
+    }
+    const report = await this.trimestrialReports.findOne({ where: { id } });
+    if (!report) throw new NotFoundException();
+    if (actor.role === UserRole.TEACHER) {
+      await this.assertTeacherOwnsStudent(actor, report.studentId);
+    }
+    return this.formatTrimestrial(report);
   }
 
   async changeGroup(

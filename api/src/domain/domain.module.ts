@@ -10,6 +10,7 @@ import { GroupMembership } from '../entities/group-membership.entity';
 import { JoinRequest } from '../entities/join-request.entity';
 import { DailyReport } from '../entities/daily-report.entity';
 import { WeeklyReport } from '../entities/weekly-report.entity';
+import { TrimestrialReport } from '../entities/trimestrial-report.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { AbsenceExcuseRequest } from '../entities/absence-excuse-request.entity';
 import { StudentNote } from '../entities/student-note.entity';
@@ -29,6 +30,7 @@ const entities = [
   JoinRequest,
   DailyReport,
   WeeklyReport,
+  TrimestrialReport,
   Attendance,
   AbsenceExcuseRequest,
   StudentNote,

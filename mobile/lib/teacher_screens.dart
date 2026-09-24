@@ -3,6 +3,7 @@ import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/groups_catalog.dart';
 import 'package:ertaki_mobile/hub_menu.dart';
+import 'package:ertaki_mobile/monitoring_calendar.dart';
 import 'package:ertaki_mobile/report_detail.dart';
 import 'package:ertaki_mobile/widgets.dart';
 
@@ -312,7 +313,11 @@ class TeacherReportsHub extends StatelessWidget {
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => StaffReportsListPage(api: api, reportDate: today),
+                    builder: (_) => MonitoringCalendarPage(
+                      api: api,
+                      kind: MonitoringKind.reports,
+                      title: 'تقويم التقارير اليومية',
+                    ),
                   ),
                 );
               },
@@ -322,12 +327,15 @@ class TeacherReportsHub extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('تقارير اليوم', style: ui(size: 16, weight: FontWeight.w700)),
-                        Text(today, style: ui(size: 13, color: Brand.muted)),
+                        Text('تقويم التقارير', style: ui(size: 16, weight: FontWeight.w700)),
+                        Text(
+                          'اضغط يوماً · مجمّعة حسب المجموعة · اليوم $today',
+                          style: ui(size: 13, color: Brand.muted),
+                        ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_left, color: Brand.muted),
+                  const Icon(Icons.calendar_month_outlined, color: Brand.muted),
                 ],
               ),
             ),
@@ -345,7 +353,37 @@ class TeacherReportsHub extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('التقارير الأسبوعية', style: ui(size: 16, weight: FontWeight.w700)),
-                        Text('بعد حفظ حضور المجلس · موجز وتفصيلي', style: ui(size: 13, color: Brand.muted)),
+                        Text(
+                          'بعد حفظ حضور المجلس · مجمّعة حسب المجموعة · تُحذف اليومية لذلك الأسبوع',
+                          style: ui(size: 13, color: Brand.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_left, color: Brand.muted),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            SoftPanel(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TrimestrialReportsPage(api: api),
+                  ),
+                );
+              },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('التقارير الفصلية', style: ui(size: 16, weight: FontWeight.w700)),
+                        Text(
+                          'كل 3 أشهر · تجميع الأسبوعي · مجمّعة حسب المجموعة',
+                          style: ui(size: 13, color: Brand.muted),
+                        ),
                       ],
                     ),
                   ),
@@ -750,6 +788,94 @@ class TeacherAttendance extends StatefulWidget {
 }
 
 class _TeacherAttendanceState extends State<TeacherAttendance> {
+  @override
+  Widget build(BuildContext context) {
+    final asPage = ModalRoute.of(context)?.isFirst == false;
+    final body = ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (!asPage)
+          Text('الحضور', style: ui(size: 22, weight: FontWeight.w700)),
+        SoftPanel(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => MonitoringCalendarPage(
+                  api: widget.api,
+                  kind: MonitoringKind.attendance,
+                  title: 'تقويم الحضور',
+                ),
+              ),
+            );
+          },
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('تقويم الحضور', style: ui(size: 16, weight: FontWeight.w700)),
+                    Text(
+                      'اضغط يوماً لعرض الحضور مجمّعاً حسب المجموعة',
+                      style: ui(size: 13, color: Brand.muted),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.calendar_month_outlined, color: Brand.muted),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        SoftPanel(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => TeacherAttendanceMarkPage(api: widget.api),
+              ),
+            );
+          },
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('تسجيل حضور المجلس الأسبوعي', style: ui(size: 16, weight: FontWeight.w700)),
+                    Text(
+                      'حفظ الحضور يولّد التقارير الأسبوعية ويحذف اليومية لذلك الأسبوع',
+                      style: ui(size: 13, color: Brand.muted),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_left, color: Brand.muted),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (!asPage) return body;
+    return Scaffold(
+      backgroundColor: Brand.mist,
+      appBar: AppBar(
+        title: Text('الحضور', style: ui(size: 18, weight: FontWeight.w700)),
+      ),
+      body: Atmosphere(child: body),
+    );
+  }
+}
+
+class TeacherAttendanceMarkPage extends StatefulWidget {
+  const TeacherAttendanceMarkPage({super.key, required this.api});
+  final ApiClient api;
+
+  @override
+  State<TeacherAttendanceMarkPage> createState() =>
+      _TeacherAttendanceMarkPageState();
+}
+
+class _TeacherAttendanceMarkPageState extends State<TeacherAttendanceMarkPage> {
   List<Map<String, dynamic>> students = [];
   String? groupId;
   String? groupName;
@@ -808,7 +934,7 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
       final n = (res['generated'] as num?)?.toInt() ?? entries.length;
       showToast(
         context,
-        'تم حفظ حضور المجلس الأسبوعي وتوليد $n تقريراً أسبوعياً',
+        'تم حفظ الحضور وتوليد $n تقريراً أسبوعياً · حُذفت التقارير اليومية لهذا الأسبوع',
       );
     } catch (e) {
       showToast(context, e.toString(), error: true);
@@ -819,8 +945,14 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
-    final asPage = ModalRoute.of(context)?.isFirst == false;
+    if (loading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('حضور المجلس الأسبوعي', style: ui(size: 18, weight: FontWeight.w700)),
+        ),
+        body: const Atmosphere(child: Center(child: CircularProgressIndicator())),
+      );
+    }
     Widget body;
     if (students.isEmpty) {
       body = ListView(
@@ -842,11 +974,9 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (!asPage)
-                    Text('حضور المجلس الأسبوعي', style: ui(size: 22, weight: FontWeight.w700)),
                   Text('${groupName ?? ''} · أسبوع ${todayIso()}', style: ui(size: 13, color: Brand.muted)),
                   Text(
-                    'بعد الحفظ تُولَّد التقارير الأسبوعية لكل طالب',
+                    'بعد الحفظ تُولَّد التقارير الأسبوعية وتُحذف اليومية لذلك الأسبوع',
                     style: ui(size: 12, color: Brand.muted),
                   ),
                 ],
@@ -894,7 +1024,6 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
         ],
       );
     }
-    if (!asPage) return body;
     return Scaffold(
       backgroundColor: Brand.mist,
       appBar: AppBar(

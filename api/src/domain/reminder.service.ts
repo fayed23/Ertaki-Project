@@ -17,6 +17,7 @@ export class ReminderService implements OnModuleInit {
   private lastEveningKey = '';
   private lastLateKey = '';
   private lastWeeklyKey = '';
+  private lastTrimestrialKey = '';
 
   constructor(
     @InjectRepository(ReportDeadlineConfig)
@@ -104,6 +105,27 @@ export class ReminderService implements OnModuleInit {
       );
     } catch (e) {
       this.logger.error(`Auto weekly reports failed: ${e}`);
+    }
+  }
+
+  /**
+   * 1st of Jan/Apr/Jul/Oct 00:30 Africa/Algiers — close previous calendar
+   * trimester: delete weeklies in that span and generate trimestrial reports.
+   */
+  @Cron('30 0 1 1,4,7,10 *', { timeZone: 'Africa/Algiers' })
+  async tickTrimestrialReports() {
+    const key = new Date().toISOString().slice(0, 7);
+    if (this.lastTrimestrialKey === key) return;
+    this.lastTrimestrialKey = key;
+    try {
+      const result = await this.domain.autoGenerateTrimestrialReports(
+        'Africa/Algiers',
+      );
+      this.logger.log(
+        `Auto trimestrial: generated=${result.generated} deletedWeeklies=${result.deletedWeeklies} period=${result.periodStart}..${result.periodEnd}`,
+      );
+    } catch (e) {
+      this.logger.error(`Auto trimestrial failed: ${e}`);
     }
   }
 

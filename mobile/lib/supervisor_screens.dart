@@ -159,6 +159,12 @@ class _SupervisorHomeState extends State<SupervisorHome> with RouteAware {
             onTap: () => _open(SupervisorDirectoryPage(api: widget.api)),
           ),
           HubCategory(
+            icon: Icons.calendar_view_month_outlined,
+            label: 'التقارير الفصلية',
+            subtitle: 'كل 3 أشهر · حسب المجموعة',
+            onTap: () => _open(TrimestrialReportsPage(api: widget.api)),
+          ),
+          HubCategory(
             icon: Icons.notifications_outlined,
             label: 'الإشعارات',
             badgeCount: unreadNotifs,

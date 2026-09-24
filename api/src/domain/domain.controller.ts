@@ -225,11 +225,15 @@ export class DomainController {
     @Query('studentId') studentId?: string,
     @Query('reportDate') reportDate?: string,
     @Query('groupId') groupId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     return this.domain.listDailyReports(user, {
       studentId,
       reportDate,
       groupId,
+      from,
+      to,
     });
   }
 
@@ -282,6 +286,40 @@ export class DomainController {
     return this.domain.getWeeklyReport(user, id, mode ?? 'detailed');
   }
 
+  @Post('trimestrial-reports/generate')
+  @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  generateTrimestrial(
+    @CurrentUser() user: User,
+    @Body() body: { periodStartDate?: string; periodEndDate?: string },
+  ) {
+    return this.domain.generateTrimestrialReports(
+      user,
+      body.periodStartDate,
+      body.periodEndDate,
+    );
+  }
+
+  @Post('trimestrial-reports/auto-generate')
+  @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  autoTrimestrial() {
+    return this.domain.autoGenerateTrimestrialReports();
+  }
+
+  @Get('trimestrial-reports')
+  @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  listTrimestrial(
+    @CurrentUser() user: User,
+    @Query('groupId') groupId?: string,
+  ) {
+    return this.domain.listTrimestrialReports(user, groupId);
+  }
+
+  @Get('trimestrial-reports/:id')
+  @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  getTrimestrial(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.domain.getTrimestrialReport(user, id);
+  }
+
   @Post('attendance')
   @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
   recordAttendance(
@@ -327,8 +365,10 @@ export class DomainController {
     @CurrentUser() user: User,
     @Query('groupId') groupId?: string,
     @Query('sessionDate') sessionDate?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    return this.domain.listAttendance(user, groupId, sessionDate);
+    return this.domain.listAttendance(user, groupId, sessionDate, from, to);
   }
 
   @Post('excuse-requests')

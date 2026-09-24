@@ -70,3 +70,13 @@ Teacher students list: students appear **only under their group sections** (no f
 
 ## Time entry UI
 - All time fields use system clock / `showTimePicker` / HTML `<input type="time">` — no dual/range sliders.
+
+## Teacher monitoring calendar
+- **Reports** and **attendance** monitoring use a **month calendar**; tapping a day shows that day’s items **grouped by group**.
+- Empty/loading/error states when a day has no data (including days whose dailies were rolled into a weekly).
+
+## Report retention lifecycle
+- **Daily → weekly:** When weekly reports are generated (after `POST /attendance/weekly` or weekly fallback), **delete that week’s daily reports** for each student. Only weeklies remain for that period.
+- **Weekly → trimestrial (كل 3 أشهر):** On calendar-trimester close (cron 1 Jan/Apr/Jul/Oct 00:30 Africa/Algiers, or manual generate), **delete weeklies** in that trimester and generate a **trimestrial report per student/group** aggregating all weekly fields. Lists/views are **grouped by group**.
+- **Trimestrial visibility:** teachers (their groups) **and supervisors** (all groups). Supervisors still have **no** access to daily or weekly report content.
+- Trimesters: calendar quarters Jan–Mar · Apr–Jun · Jul–Sep · Oct–Dec (Africa/Algiers).

@@ -842,7 +842,7 @@ class WeeklyReportsPage extends StatefulWidget {
 }
 
 class _WeeklyReportsPageState extends State<WeeklyReportsPage> {
-  List<dynamic> items = [];
+  List<MapEntry<String, List<Map<String, dynamic>>>> groups = [];
   bool detailed = false;
   bool loading = true;
 
@@ -857,14 +857,65 @@ class _WeeklyReportsPageState extends State<WeeklyReportsPage> {
     try {
       final mode = detailed ? 'detailed' : 'brief';
       final list = await widget.api.get('/weekly-reports?mode=$mode') as List<dynamic>;
+      final map = <String, List<Map<String, dynamic>>>{};
+      for (final raw in list) {
+        final w = Map<String, dynamic>.from(raw as Map);
+        final key = '${w['groupName'] ?? 'بدون مجموعة'}';
+        map.putIfAbsent(key, () => []).add(w);
+      }
+      final sorted = map.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
       setState(() {
-        items = list;
+        groups = sorted;
         loading = false;
       });
     } catch (e) {
       setState(() => loading = false);
       if (mounted) showToast(context, e.toString(), error: true);
     }
+  }
+
+  Widget _reportCard(Map<String, dynamic> w) {
+    final attended = w['attendedMajlisLabel'] ??
+        ((w['attendedMajlis'] == true || (w['presentSessions'] as num?)?.toInt() == 1)
+            ? 'نعم'
+            : 'لا');
+    return SoftPanel(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'اسم الطالب: ${w['studentName'] ?? '—'}',
+            style: ui(weight: FontWeight.w700),
+          ),
+          Text(
+            '${w['weekStartDate']} → ${w['weekEndDate']}',
+            style: ui(size: 12, color: Brand.muted),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'حضرت مجلس التسميع: $attended',
+            style: ui(size: 14, weight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text('عدد المرات التي فيها لم:', style: ui(size: 13, weight: FontWeight.w700, color: Brand.muted)),
+          const SizedBox(height: 4),
+          Text('أرسل التقرير: ${w['missedDailyReports'] ?? '—'}', style: ui(size: 13)),
+          Text('أحفظ القسط اليومي: ${w['missedQuota'] ?? '—'}', style: ui(size: 13)),
+          Text('أكرر 50 مرة: ${w['missedFiftyReps'] ?? '—'}', style: ui(size: 13)),
+          Text('أكرر في مجلس واحد: ${w['missedSingleSitting'] ?? '—'}', style: ui(size: 13)),
+          Text('آتِ بورد المراجعة: ${w['missedReview'] ?? '—'}', style: ui(size: 13)),
+          if (detailed) ...[
+            const SizedBox(height: 8),
+            Text(
+              'أيام الإرسال: ${w['dailyReportsSubmitted']} · القسط: ${w['quotaDaysMet']} · 50: ${w['fiftyRepsDaysMet']}',
+              style: ui(size: 12, color: Brand.muted),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -892,63 +943,161 @@ class _WeeklyReportsPageState extends State<WeeklyReportsPage> {
                   children: [
                     SoftPanel(
                       child: Text(
-                        detailed
-                            ? 'التقرير الأسبوعي التفصيلي — بعد حفظ حضور مجلس التسميع'
-                            : 'التقرير الأسبوعي الموجز — اسم الطالب · حضور المجلس · عدّادات «لم …»',
+                        'مجمّعة حسب المجموعة · بعد حفظ الحضور تُحذف التقارير اليومية لذلك الأسبوع',
                         style: ui(size: 13, color: Brand.muted),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    if (items.isEmpty)
+                    if (groups.isEmpty)
                       const EmptyState(
                         icon: Icons.insights_outlined,
                         title: 'لا تقارير أسبوعية بعد',
                         subtitle: 'تُولَّد بعد أن يحفظ المعلم حضور المجلس الأسبوعي',
                       )
                     else
-                      ...items.map((raw) {
-                        final w = Map<String, dynamic>.from(raw as Map);
-                        final attended = w['attendedMajlisLabel'] ??
-                            ((w['attendedMajlis'] == true || (w['presentSessions'] as num?)?.toInt() == 1)
-                                ? 'نعم'
-                                : 'لا');
-                        return SoftPanel(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'اسم الطالب: ${w['studentName'] ?? '—'}',
-                                style: ui(weight: FontWeight.w700),
+                      ...groups.expand((entry) {
+                        return [
+                          SectionTitle(entry.key),
+                          ...entry.value.map(_reportCard),
+                          const SizedBox(height: 8),
+                        ];
+                      }),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class TrimestrialReportsPage extends StatefulWidget {
+  const TrimestrialReportsPage({super.key, required this.api});
+  final ApiClient api;
+
+  @override
+  State<TrimestrialReportsPage> createState() => _TrimestrialReportsPageState();
+}
+
+class _TrimestrialReportsPageState extends State<TrimestrialReportsPage> {
+  List<Map<String, dynamic>> groups = [];
+  bool loading = true;
+  bool generating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => loading = true);
+    try {
+      final res = await widget.api.get('/trimestrial-reports') as Map<String, dynamic>;
+      final list = (res['groups'] as List<dynamic>? ?? [])
+          .map((g) => Map<String, dynamic>.from(g as Map))
+          .toList();
+      setState(() {
+        groups = list;
+        loading = false;
+      });
+    } catch (e) {
+      setState(() => loading = false);
+      if (mounted) showToast(context, e.toString(), error: true);
+    }
+  }
+
+  Future<void> _generate() async {
+    setState(() => generating = true);
+    try {
+      final res = await widget.api.post('/trimestrial-reports/auto-generate', {})
+          as Map<String, dynamic>;
+      final n = (res['generated'] as num?)?.toInt() ?? 0;
+      final deleted = (res['deletedWeeklies'] as num?)?.toInt() ?? 0;
+      if (mounted) {
+        showToast(
+          context,
+          'فصلي: $n تقريراً · حُذف $deleted أسبوعياً · ${res['periodStart']} — ${res['periodEnd']}',
+        );
+      }
+      await _load();
+    } catch (e) {
+      if (mounted) showToast(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => generating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('التقارير الفصلية', style: ui(size: 18, weight: FontWeight.w700)),
+        actions: [
+          TextButton(
+            onPressed: generating ? null : _generate,
+            child: Text(generating ? '…' : 'توليد'),
+          ),
+        ],
+      ),
+      body: Atmosphere(
+        child: loading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    SoftPanel(
+                      child: Text(
+                        'كل 3 أشهر: تُحذف التقارير الأسبوعية للفترة ويُولَّد تقرير فصلي لكل طالب داخل مجموعته',
+                        style: ui(size: 13, color: Brand.muted),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (groups.isEmpty)
+                      const EmptyState(
+                        icon: Icons.calendar_view_month_outlined,
+                        title: 'لا تقارير فصلية بعد',
+                        subtitle: 'تُولَّد تلقائياً في بداية كل فصل تقويمي أو من زر توليد',
+                      )
+                    else
+                      ...groups.expand((g) {
+                        final name = '${g['groupName'] ?? 'بدون مجموعة'}';
+                        final reports = (g['reports'] as List<dynamic>? ?? [])
+                            .map((r) => Map<String, dynamic>.from(r as Map))
+                            .toList();
+                        return [
+                          SectionTitle(name),
+                          ...reports.map((t) {
+                            return SoftPanel(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${t['studentName'] ?? 'طالب'}',
+                                    style: ui(weight: FontWeight.w700),
+                                  ),
+                                  Text(
+                                    '${t['periodStartDate']} → ${t['periodEndDate']} · ${t['weeksCount']} أسابيع',
+                                    style: ui(size: 12, color: Brand.muted),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'حضور المجلس: ${t['weeksAttendedMajlis']}/${t['weeksCount']}',
+                                    style: ui(size: 13, weight: FontWeight.w700),
+                                  ),
+                                  Text('لم أرسل التقرير: ${t['missedDailyReports']}', style: ui(size: 13)),
+                                  Text('لم أحفظ القسط: ${t['missedQuota']}', style: ui(size: 13)),
+                                  Text('لم أكرر 50: ${t['missedFiftyReps']}', style: ui(size: 13)),
+                                  Text('لم أكرر في مجلس واحد: ${t['missedSingleSitting']}', style: ui(size: 13)),
+                                  Text('لم آتِ بورد المراجعة: ${t['missedReview']}', style: ui(size: 13)),
+                                ],
                               ),
-                              Text(
-                                '${w['weekStartDate']} → ${w['weekEndDate']}'
-                                '${w['groupName'] != null ? ' · ${w['groupName']}' : ''}',
-                                style: ui(size: 12, color: Brand.muted),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'حضرت مجلس التسميع: $attended',
-                                style: ui(size: 14, weight: FontWeight.w700),
-                              ),
-                              const SizedBox(height: 8),
-                              Text('عدد المرات التي فيها لم:', style: ui(size: 13, weight: FontWeight.w700, color: Brand.muted)),
-                              const SizedBox(height: 4),
-                              Text('أرسل التقرير: ${w['missedDailyReports'] ?? '—'}', style: ui(size: 13)),
-                              Text('أحفظ القسط اليومي: ${w['missedQuota'] ?? '—'}', style: ui(size: 13)),
-                              Text('أكرر 50 مرة: ${w['missedFiftyReps'] ?? '—'}', style: ui(size: 13)),
-                              Text('أكرر في مجلس واحد: ${w['missedSingleSitting'] ?? '—'}', style: ui(size: 13)),
-                              Text('آتِ بورد المراجعة: ${w['missedReview'] ?? '—'}', style: ui(size: 13)),
-                              if (detailed) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  'أيام الإرسال: ${w['dailyReportsSubmitted']} · القسط: ${w['quotaDaysMet']} · 50: ${w['fiftyRepsDaysMet']}',
-                                  style: ui(size: 12, color: Brand.muted),
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
+                            );
+                          }),
+                          const SizedBox(height: 8),
+                        ];
                       }),
                   ],
                 ),
