@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/shell.dart';
+import 'package:ertaki_mobile/signup.dart';
 import 'package:ertaki_mobile/widgets.dart';
 import 'package:ertaki_mobile/notify.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -132,6 +133,23 @@ class _GatePageState extends State<GatePage> {
                         FilledButton(
                           onPressed: loading ? null : login,
                           child: Text(loading ? 'جاري الدخول…' : 'دخول'),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton(
+                          onPressed: loading
+                              ? null
+                              : () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => const SignupPage()),
+                                  );
+                                },
+                          child: const Text('إنشاء حساب طالب / معلم'),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'بعد التسجيل يبقى الحساب بانتظار موافقة المشرف قبل الدخول',
+                          style: ui(size: 11, color: Brand.muted),
+                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 12),
                         Text(

@@ -35,7 +35,10 @@ export class User {
   @Column({ type: 'varchar', default: UserStatus.NEW })
   status: UserStatus;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'text', nullable: true })
+  accountReviewNote: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
   gender: string | null;
 
   @Column({ type: 'date', nullable: true })

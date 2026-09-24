@@ -6,6 +6,7 @@ export enum UserRole {
 }
 
 export enum UserStatus {
+  PENDING_APPROVAL = 'pending_approval',
   NEW = 'new',
   PENDING_GROUP = 'pending_group',
   ACTIVE = 'active',
@@ -13,6 +14,7 @@ export enum UserStatus {
   WITHDRAWN = 'withdrawn',
   SUSPENDED = 'suspended',
   COMPLETED = 'completed',
+  REJECTED = 'rejected',
 }
 
 export enum GroupGender {

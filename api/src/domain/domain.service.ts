@@ -146,6 +146,88 @@ export class DomainService {
     return this.users.find({ order: { createdAt: 'DESC' } });
   }
 
+  async listPendingAccounts(actor: User) {
+    this.requireSupervisor(actor);
+    const rows = await this.users.find({
+      where: [
+        { status: UserStatus.PENDING_APPROVAL },
+        { status: UserStatus.REJECTED },
+      ],
+      order: { createdAt: 'DESC' },
+    });
+    rows.sort((a, b) => {
+      const ap = a.status === UserStatus.PENDING_APPROVAL ? 0 : 1;
+      const bp = b.status === UserStatus.PENDING_APPROVAL ? 0 : 1;
+      return ap - bp;
+    });
+    return rows.map(({ passwordHash: _, ...safe }) => safe);
+  }
+
+  async reviewAccount(
+    actor: User,
+    userId: string,
+    approve: boolean,
+    reviewNote?: string,
+  ) {
+    this.requireSupervisor(actor);
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('المستخدم غير موجود');
+    if (
+      ![UserRole.STUDENT, UserRole.TEACHER].includes(user.role) ||
+      user.status !== UserStatus.PENDING_APPROVAL
+    ) {
+      throw new BadRequestException('الحساب غير صالح للمراجعة');
+    }
+    const before = {
+      status: user.status,
+      isActive: user.isActive,
+      accountReviewNote: user.accountReviewNote,
+    };
+    if (approve) {
+      user.isActive = true;
+      user.accountReviewNote = reviewNote?.trim() || null;
+      user.status =
+        user.role === UserRole.TEACHER ? UserStatus.ACTIVE : UserStatus.NEW;
+      await this.users.save(user);
+      await this.notify(
+        user.id,
+        'account_approved',
+        'تم تفعيل حسابك',
+        'وافق المشرف على حسابك — يمكنك تسجيل الدخول الآن',
+        { userId: user.id, role: user.role },
+      );
+    } else {
+      user.isActive = false;
+      user.status = UserStatus.REJECTED;
+      user.accountReviewNote = reviewNote?.trim() || null;
+      await this.users.save(user);
+      const reason = user.accountReviewNote
+        ? ` السبب: ${user.accountReviewNote}`
+        : '';
+      await this.notify(
+        user.id,
+        'account_rejected',
+        'تم رفض تفعيل الحساب',
+        `رفض المشرف تفعيل حسابك.${reason}`,
+        { userId: user.id, role: user.role },
+      );
+    }
+    await this.auditLog(
+      actor.id,
+      'account.review',
+      'user',
+      user.id,
+      before,
+      {
+        status: user.status,
+        isActive: user.isActive,
+        accountReviewNote: user.accountReviewNote,
+      },
+    );
+    const { passwordHash: _, ...safe } = user;
+    return safe;
+  }
+
   async createGroup(
     actor: User,
     input: {
@@ -1120,6 +1202,7 @@ export class DomainService {
       teachers,
       groups,
       pendingJoins,
+      pendingAccounts,
       activeStudents,
       openInfractions,
       reportsToday,
@@ -1128,6 +1211,7 @@ export class DomainService {
       this.users.count({ where: { role: UserRole.TEACHER } }),
       this.groups.count(),
       this.joinRequests.count({ where: { status: JoinRequestStatus.PENDING } }),
+      this.users.count({ where: { status: UserStatus.PENDING_APPROVAL } }),
       this.users.count({
         where: { role: UserRole.STUDENT, status: UserStatus.ACTIVE },
       }),
@@ -1140,6 +1224,7 @@ export class DomainService {
       teachers,
       groups,
       pendingJoins,
+      pendingAccounts,
       activeStudents,
       openInfractions,
       reportsToday,

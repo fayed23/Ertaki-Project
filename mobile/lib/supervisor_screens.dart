@@ -46,9 +46,11 @@ class _SupervisorHomeState extends State<SupervisorHome> {
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
-    final pending = (data?['pendingJoins'] as num?)?.toInt() ?? 0;
+    final pendingJoins = (data?['pendingJoins'] as num?)?.toInt() ?? 0;
+    final pendingAccounts = (data?['pendingAccounts'] as num?)?.toInt() ?? 0;
     final metrics = [
-      ('طلبات معلّقة', pending),
+      ('تفعيل حسابات', pendingAccounts),
+      ('طلبات انضمام', pendingJoins),
       ('تقارير اليوم', (data?['reportsToday'] as num?)?.toInt() ?? 0),
       ('تقصير مفتوح', (data?['openInfractions'] as num?)?.toInt() ?? 0),
       ('نشطون', (data?['activeStudents'] as num?)?.toInt() ?? 0),
@@ -65,7 +67,7 @@ class _SupervisorHomeState extends State<SupervisorHome> {
           Text('مرحباً ${widget.me['firstName']}', style: ui(size: 22, weight: FontWeight.w700)),
           Text('لوحة المشرف · ${data?['today']}', style: ui(size: 13, color: Brand.muted)),
           const SizedBox(height: 12),
-          if (pending > 0)
+          if (pendingAccounts > 0)
             SoftPanel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -74,7 +76,37 @@ class _SupervisorHomeState extends State<SupervisorHome> {
                     children: [
                       Expanded(
                         child: Text(
-                          'طلبات انضمام بانتظارك ($pending)',
+                          'حسابات بانتظار التفعيل ($pendingAccounts)',
+                          style: ui(size: 17, weight: FontWeight.w700),
+                        ),
+                      ),
+                      const StatusChip(label: 'مطلوب', tone: ChipTone.warn),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'وافق أو ارفض تسجيلات الطلبة والمعلمين قبل طلبات الانضمام',
+                    style: ui(size: 13, color: Brand.muted),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: widget.onGoJoins,
+                    icon: const Icon(Icons.verified_user_outlined),
+                    label: const Text('مراجعة الحسابات'),
+                  ),
+                ],
+              ),
+            )
+          else if (pendingJoins > 0)
+            SoftPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'طلبات انضمام بانتظارك ($pendingJoins)',
                           style: ui(size: 17, weight: FontWeight.w700),
                         ),
                       ),
@@ -102,7 +134,7 @@ class _SupervisorHomeState extends State<SupervisorHome> {
                   const Icon(Icons.check_circle_outline, color: Brand.forestMid),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text('لا طلبات انضمام معلّقة', style: ui(weight: FontWeight.w600)),
+                    child: Text('لا حسابات أو طلبات معلّقة', style: ui(weight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -160,6 +192,7 @@ class SupervisorJoins extends StatefulWidget {
 
 class _SupervisorJoinsState extends State<SupervisorJoins> {
   List<dynamic> joins = [];
+  List<dynamic> accounts = [];
   bool loading = true;
 
   @override
@@ -171,13 +204,19 @@ class _SupervisorJoinsState extends State<SupervisorJoins> {
   Future<void> _load() async {
     setState(() => loading = true);
     try {
-      final j = await widget.api.get('/join-requests') as List<dynamic>;
-      j.sort((a, b) {
-        final ap = a['status'] == 'pending' ? 0 : 1;
-        final bp = b['status'] == 'pending' ? 0 : 1;
+      final results = await Future.wait([
+        widget.api.get('/account-approvals'),
+        widget.api.get('/join-requests'),
+      ]);
+      final a = List<dynamic>.from(results[0] as List<dynamic>);
+      final j = List<dynamic>.from(results[1] as List<dynamic>);
+      j.sort((x, y) {
+        final ap = x['status'] == 'pending' ? 0 : 1;
+        final bp = y['status'] == 'pending' ? 0 : 1;
         return ap.compareTo(bp);
       });
       setState(() {
+        accounts = a;
         joins = j;
         loading = false;
       });
@@ -187,7 +226,7 @@ class _SupervisorJoinsState extends State<SupervisorJoins> {
     }
   }
 
-  Future<void> _review(String id, bool accept) async {
+  Future<void> _reviewJoin(String id, bool accept) async {
     try {
       await widget.api.patch('/join-requests/$id', {'accept': accept});
       if (mounted) showToast(context, accept ? 'تم قبول الطلب' : 'تم رفض الطلب');
@@ -197,12 +236,55 @@ class _SupervisorJoinsState extends State<SupervisorJoins> {
     }
   }
 
+  Future<void> _reviewAccount(String id, bool approve) async {
+    String? note;
+    if (!approve) {
+      final ctrl = TextEditingController();
+      note = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('سبب الرفض (اختياري)'),
+          content: TextField(
+            controller: ctrl,
+            decoration: const InputDecoration(hintText: 'اكتب ملاحظة للمستخدم'),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('رفض'),
+            ),
+          ],
+        ),
+      );
+      if (note == null) return;
+    }
+    try {
+      await widget.api.patch('/account-approvals/$id', {
+        'approve': approve,
+        if (note != null && note.isNotEmpty) 'reviewNote': note,
+      });
+      if (mounted) {
+        showToast(context, approve ? 'تم تفعيل الحساب' : 'تم رفض الحساب');
+      }
+      await _load();
+    } catch (e) {
+      if (mounted) showToast(context, e.toString(), error: true);
+    }
+  }
+
   ChipTone _tone(String status) {
     switch (status) {
       case 'pending':
+      case 'pending_approval':
         return ChipTone.warn;
       case 'accepted':
+      case 'active':
+      case 'new':
         return ChipTone.ok;
+      case 'rejected':
+        return ChipTone.danger;
       default:
         return ChipTone.neutral;
     }
@@ -212,6 +294,8 @@ class _SupervisorJoinsState extends State<SupervisorJoins> {
     switch (status) {
       case 'pending':
         return 'قيد المراجعة';
+      case 'pending_approval':
+        return 'بانتظار التفعيل';
       case 'accepted':
         return 'مقبول';
       case 'rejected':
@@ -221,16 +305,110 @@ class _SupervisorJoinsState extends State<SupervisorJoins> {
     }
   }
 
+  String _roleAr(String role) {
+    switch (role) {
+      case 'teacher':
+        return 'معلم';
+      case 'student':
+        return 'طالب';
+      default:
+        return role;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
+    final pendingAccounts =
+        accounts.where((a) => a['status'] == 'pending_approval').length;
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Text('تفعيل الحسابات', style: ui(size: 22, weight: FontWeight.w700)),
+          Text(
+            'موافقة المشرف على تسجيل طالب/معلم قبل الدخول',
+            style: ui(size: 13, color: Brand.muted),
+          ),
+          const SizedBox(height: 12),
+          if (accounts.isEmpty)
+            const EmptyState(
+              icon: Icons.person_off_outlined,
+              title: 'لا حسابات بانتظار التفعيل',
+              subtitle: 'التسجيلات الجديدة تظهر هنا للمراجعة',
+            )
+          else
+            ...accounts.map((u) {
+              final status = '${u['status']}';
+              return SoftPanel(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${u['firstName'] ?? ''} ${u['lastName'] ?? ''}'.trim(),
+                            style: ui(size: 16, weight: FontWeight.w700),
+                          ),
+                        ),
+                        StatusChip(label: _label(status), tone: _tone(status)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_roleAr('${u['role']}')} · ${u['phone'] ?? ''}',
+                      style: ui(color: Brand.muted),
+                    ),
+                    if (u['city'] != null)
+                      Text('${u['city']}', style: ui(size: 13, color: Brand.muted)),
+                    if (status == 'rejected' && u['accountReviewNote'] != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          'السبب: ${u['accountReviewNote']}',
+                          style: ui(size: 13, color: Brand.muted),
+                        ),
+                      ),
+                    if (status == 'pending_approval') ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => _reviewAccount('${u['id']}', true),
+                              child: const Text('تفعيل'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => _reviewAccount('${u['id']}', false),
+                              child: const Text('رفض'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }),
+          const SizedBox(height: 20),
           Text('طلبات الانضمام', style: ui(size: 22, weight: FontWeight.w700)),
-          Text('قبول أو رفض طلبات الطلبة للمجموعات', style: ui(size: 13, color: Brand.muted)),
+          Text(
+            'قبول أو رفض طلبات الطلبة للمجموعات (منفصل عن تفعيل الحساب)',
+            style: ui(size: 13, color: Brand.muted),
+          ),
+          if (pendingAccounts > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              'فعّل الحسابات أولاً إن وجدت أعلاه',
+              style: ui(size: 12, color: Brand.muted),
+            ),
+          ],
           const SizedBox(height: 12),
           if (joins.isEmpty)
             const EmptyState(
@@ -269,14 +447,14 @@ class _SupervisorJoinsState extends State<SupervisorJoins> {
                         children: [
                           Expanded(
                             child: FilledButton(
-                              onPressed: () => _review('${j['id']}', true),
+                              onPressed: () => _reviewJoin('${j['id']}', true),
                               child: const Text('قبول'),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: OutlinedButton(
-                              onPressed: () => _review('${j['id']}', false),
+                              onPressed: () => _reviewJoin('${j['id']}', false),
                               child: const Text('رفض'),
                             ),
                           ),

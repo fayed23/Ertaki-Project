@@ -34,7 +34,13 @@ Living product map of what exists today.
 
 - Login / JWT session; password hashes excluded from API responses
 - Role-based Nest guards + domain checks (server is source of truth)
+- **Public self-registration (Flutter):** `student` or `teacher` only — not supervisor/admin
+- New signups start as `pending_approval` / inactive; login blocked with clear Arabic message until supervisor approves
+- Supervisor **approve** → account active (student `new` for join flow, teacher `active`); **reject** → stays blocked with optional reason
+- Seeded accounts remain active; join-group requests stay a separate workflow from account activation
+- Endpoints: `POST /auth/register`, `GET/PATCH /account-approvals` (supervisor/admin)
 - Device token registration endpoint for optional FCM
+- Notify supervisors on new pending signup; notify user on approve/reject (in-app stub + FCM when keyed)
 
 ---
 
@@ -105,8 +111,8 @@ Living product map of what exists today.
 - **Student home:** primary CTA «أرسل تقرير اليوم» / submitted state; notes empty states
 - **Teacher home:** لم يرسلوا اليوم / تقصير / مجلس اليوم; group cards with chips/seat bars
 - **Teacher:** students list → student file; attendance tab; notifications tab
-- **Supervisor Flutter:** home metrics + pending-joins CTA; joins; groups; notifications (policies via web / home note)
-- **Supervisor admin (Next):** pending joins first, chips, seat bars, toasts, RTL brand
+- **Supervisor Flutter:** home metrics + pending account-activation / joins CTAs; طلبات tab = account approvals + join requests; groups; notifications (policies via web / home note)
+- **Supervisor admin (Next):** تفعيل الحسابات tab + pending joins, chips, seat bars, toasts, RTL brand
 - Soft panels, empty states with CTAs, ≥48px tap targets, denser layouts (Phase A/B polish)
 
 ---
@@ -115,7 +121,7 @@ Living product map of what exists today.
 
 - Student: الرئيسية / مجموعتي / تقرير / تقدّمي  
 - Teacher: الرئيسية / طلبة / حضور / إشعارات  
-- Supervisor: الرئيسية / طلبات / مجموعات / إشعارات  
+- Supervisor: الرئيسية / طلبات (تفعيل + انضمام) / مجموعات / إشعارات  
 
 ---
 

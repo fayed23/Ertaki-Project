@@ -84,6 +84,22 @@ export class DomainController {
     return this.domain.reviewJoinRequest(user, id, body.accept, body.reviewNote);
   }
 
+  @Get('account-approvals')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  listAccountApprovals(@CurrentUser() user: User) {
+    return this.domain.listPendingAccounts(user);
+  }
+
+  @Patch('account-approvals/:id')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  reviewAccount(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() body: { approve: boolean; reviewNote?: string },
+  ) {
+    return this.domain.reviewAccount(user, id, body.approve, body.reviewNote);
+  }
+
   @Get('memberships/me')
   myMembership(@CurrentUser() user: User) {
     return this.domain.myMembership(user);

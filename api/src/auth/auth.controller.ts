@@ -16,6 +16,7 @@ export class AuthController {
       lastName: string;
       phone: string;
       password: string;
+      role?: string;
       email?: string;
       gender?: string;
       birthDate?: string;
@@ -25,7 +26,7 @@ export class AuthController {
       previousErtakiParticipant?: boolean;
     },
   ) {
-    return this.auth.registerStudent(body);
+    return this.auth.register(body);
   }
 
   @Post('login')

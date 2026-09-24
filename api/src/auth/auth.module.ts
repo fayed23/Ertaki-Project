@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../entities/user.entity';
+import { DomainModule } from '../domain/domain.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
@@ -10,6 +11,7 @@ import { JwtStrategy } from './jwt.strategy';
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
+    DomainModule,
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'ertaki-dev-secret-change-me',

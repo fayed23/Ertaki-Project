@@ -21,6 +21,7 @@ type Dashboard = {
   teachers: number;
   groups: number;
   pendingJoins: number;
+  pendingAccounts: number;
   activeStudents: number;
   openInfractions: number;
   reportsToday: number;
@@ -32,6 +33,18 @@ type JoinRequest = {
   student: User;
   group: { id: string; name: string };
   reviewNote?: string | null;
+};
+
+type PendingAccount = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  role: string;
+  status: string;
+  city?: string | null;
+  accountReviewNote?: string | null;
+  createdAt?: string;
 };
 
 type Policy = {
@@ -78,6 +91,7 @@ async function api<T>(
 
 const STATUS_AR: Record<string, string> = {
   pending: "قيد المراجعة",
+  pending_approval: "بانتظار التفعيل",
   accepted: "مقبول",
   rejected: "مرفوض",
   cancelled: "ملغى",
@@ -85,6 +99,8 @@ const STATUS_AR: Record<string, string> = {
   full: "مكتملة",
   closed: "مغلقة",
   paused: "متوقفة",
+  student: "طالب",
+  teacher: "معلم",
 };
 
 export default function AdminHome() {
@@ -95,9 +111,10 @@ export default function AdminHome() {
   const [error, setError] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [joins, setJoins] = useState<JoinRequest[]>([]);
+  const [accounts, setAccounts] = useState<PendingAccount[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [tab, setTab] = useState<"dash" | "joins" | "groups" | "policies">(
+  const [tab, setTab] = useState<"dash" | "accounts" | "joins" | "groups" | "policies">(
     "dash",
   );
 
@@ -125,13 +142,15 @@ export default function AdminHome() {
 
   async function refresh() {
     if (!token) return;
-    const [d, j, p, g] = await Promise.all([
+    const [d, a, j, p, g] = await Promise.all([
       api<Dashboard>("/dashboards/supervisor", token),
+      api<PendingAccount[]>("/account-approvals", token),
       api<JoinRequest[]>("/join-requests", token),
       api<Policy[]>("/infraction-policies", token),
       api<Group[]>("/groups", token),
     ]);
     setDashboard(d);
+    setAccounts(a);
     setJoins(j);
     setPolicies(p);
     setGroups(g);
@@ -283,9 +302,11 @@ export default function AdminHome() {
   }
 
   const pendingJoins = joins.filter((j) => j.status === "pending");
+  const pendingAccounts = accounts.filter((a) => a.status === "pending_approval");
   const metrics = dashboard
     ? [
-        ["طلبات معلّقة", dashboard.pendingJoins],
+        ["تفعيل حسابات", dashboard.pendingAccounts ?? pendingAccounts.length],
+        ["طلبات انضمام", dashboard.pendingJoins],
         ["تقارير اليوم", dashboard.reportsToday],
         ["تقصير مفتوح", dashboard.openInfractions],
         ["نشطون", dashboard.activeStudents],
@@ -391,6 +412,7 @@ export default function AdminHome() {
           {(
             [
               ["dash", "لوحة المؤشرات"],
+              ["accounts", `تفعيل الحسابات${pendingAccounts.length ? ` (${pendingAccounts.length})` : ""}`],
               ["joins", `طلبات الانضمام${pendingJoins.length ? ` (${pendingJoins.length})` : ""}`],
               ["groups", "المجموعات"],
               ["policies", "سياسات التقصير"],
@@ -423,7 +445,32 @@ export default function AdminHome() {
 
         {tab === "dash" && dashboard && (
           <section className="anim-rise-delay-2">
-            {pendingJoins.length > 0 && (
+            {pendingAccounts.length > 0 && (
+              <div
+                className="panel"
+                style={{
+                  padding: "1rem 1.15rem",
+                  marginBottom: "1rem",
+                  borderColor: "var(--gold)",
+                  background: "linear-gradient(135deg, var(--gold-soft), rgba(247,250,248,0.9))",
+                }}
+              >
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: "1.15rem" }}>
+                      حسابات بانتظار التفعيل ({pendingAccounts.length})
+                    </h2>
+                    <p style={{ margin: "0.3rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
+                      وافق أو ارفض تسجيلات الطلبة والمعلمين قبل طلبات الانضمام
+                    </p>
+                  </div>
+                  <button type="button" className="btn-primary" style={{ boxShadow: "none" }} onClick={() => setTab("accounts")}>
+                    مراجعة الحسابات
+                  </button>
+                </div>
+              </div>
+            )}
+            {pendingAccounts.length === 0 && pendingJoins.length > 0 && (
               <div
                 className="panel"
                 style={{
@@ -487,11 +534,115 @@ export default function AdminHome() {
           </section>
         )}
 
+        {tab === "accounts" && (
+          <section className="anim-rise-delay-2">
+            <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.25rem" }}>تفعيل الحسابات</h2>
+            <p style={{ margin: "0 0 0.85rem", color: "var(--muted)" }}>
+              موافقة المشرف على تسجيل طالب/معلم قبل الدخول — منفصل عن طلبات الانضمام للمجموعات
+            </p>
+            <div className="panel">
+              {accounts.length === 0 && (
+                <p className="row-item" style={{ color: "var(--muted)", margin: 0 }}>
+                  لا حسابات بانتظار التفعيل حالياً.
+                </p>
+              )}
+              {accounts.map((a) => (
+                <div
+                  key={a.id}
+                  className="row-item"
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    justifyContent: "space-between",
+                    gap: "0.85rem",
+                    alignItems: "center",
+                  }}
+                >
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 700 }}>
+                      {a.firstName} {a.lastName}
+                      <span style={{ color: "var(--muted)", fontWeight: 500 }}>
+                        {" "}
+                        · {STATUS_AR[a.role] || a.role} · {a.phone}
+                      </span>
+                    </p>
+                    <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      {chip(
+                        STATUS_AR[a.status] || a.status,
+                        a.status === "pending_approval"
+                          ? "warn"
+                          : a.status === "rejected"
+                            ? "danger"
+                            : "neutral",
+                      )}
+                      {a.city && (
+                        <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{a.city}</span>
+                      )}
+                      {a.status === "rejected" && a.accountReviewNote && (
+                        <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+                          السبب: {a.accountReviewNote}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {a.status === "pending_approval" && (
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        style={{ boxShadow: "none", minHeight: 44 }}
+                        onClick={async () => {
+                          try {
+                            await api(`/account-approvals/${a.id}`, token, {
+                              method: "PATCH",
+                              body: JSON.stringify({ approve: true }),
+                            });
+                            toast("تم تفعيل الحساب");
+                            await refresh();
+                          } catch (e) {
+                            setError(e instanceof Error ? e.message : String(e));
+                          }
+                        }}
+                      >
+                        تفعيل
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        style={{ minHeight: 44 }}
+                        onClick={async () => {
+                          const note = window.prompt("سبب الرفض (اختياري)");
+                          if (note === null) return;
+                          try {
+                            await api(`/account-approvals/${a.id}`, token, {
+                              method: "PATCH",
+                              body: JSON.stringify({
+                                approve: false,
+                                reviewNote: note.trim() || undefined,
+                              }),
+                            });
+                            toast("تم رفض الحساب");
+                            await refresh();
+                          } catch (e) {
+                            setError(e instanceof Error ? e.message : String(e));
+                          }
+                        }}
+                      >
+                        رفض
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
           {tab === "joins" && (
           <section className="anim-rise-delay-2">
             <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.25rem" }}>طلبات الانضمام</h2>
             <p style={{ margin: "0 0 0.85rem", color: "var(--muted)" }}>
-              قبول أو رفض طلبات الطلبة للمجموعات
+              قبول أو رفض طلبات الطلبة للمجموعات — منفصل عن تفعيل الحساب عند التسجيل
             </p>
             <div className="panel">
               {joins.length === 0 && (
