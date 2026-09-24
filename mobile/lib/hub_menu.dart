@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/widgets.dart';
 
+/// Shared observer for hub nested navigators — homes refresh badges on didPopNext.
+final RouteObserver<ModalRoute<void>> hubRouteObserver =
+    RouteObserver<ModalRoute<void>>();
+
 class HubCategory {
   const HubCategory({
     required this.icon,

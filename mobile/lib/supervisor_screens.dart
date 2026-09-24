@@ -13,46 +13,95 @@ class SupervisorHome extends StatefulWidget {
     required this.me,
     required this.onGoJoins,
     this.onOpenNotifications,
+    this.refreshTick,
   });
   final ApiClient api;
   final Map<String, dynamic> me;
   final VoidCallback onGoJoins;
   final VoidCallback? onOpenNotifications;
+  /// Shell bumps this when the home tab is shown / app resumes / home re-tapped.
+  final ValueNotifier<int>? refreshTick;
 
   @override
   State<SupervisorHome> createState() => _SupervisorHomeState();
 }
 
-class _SupervisorHomeState extends State<SupervisorHome> {
+class _SupervisorHomeState extends State<SupervisorHome> with RouteAware {
   Map<String, dynamic>? data;
   bool loading = true;
+  bool _routeSubscribed = false;
 
   @override
   void initState() {
     super.initState();
+    widget.refreshTick?.addListener(_onRefreshTick);
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() => loading = true);
+  @override
+  void didUpdateWidget(covariant SupervisorHome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshTick != widget.refreshTick) {
+      oldWidget.refreshTick?.removeListener(_onRefreshTick);
+      widget.refreshTick?.addListener(_onRefreshTick);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (!_routeSubscribed && route is PageRoute) {
+      hubRouteObserver.subscribe(this, route);
+      _routeSubscribed = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshTick?.removeListener(_onRefreshTick);
+    if (_routeSubscribed) {
+      hubRouteObserver.unsubscribe(this);
+    }
+    super.dispose();
+  }
+
+  void _onRefreshTick() {
+    if (mounted) _load(quiet: true);
+  }
+
+  @override
+  void didPopNext() {
+    _load(quiet: true);
+  }
+
+  Future<void> _load({bool quiet = false}) async {
+    if (!quiet) {
+      setState(() => loading = true);
+    }
     try {
       final d = await widget.api.get('/dashboards/supervisor') as Map<String, dynamic>;
+      if (!mounted) return;
       setState(() {
         data = d;
         loading = false;
       });
     } catch (e) {
-      setState(() => loading = false);
-      if (mounted) showToast(context, e.toString(), error: true);
+      if (!mounted) return;
+      if (!quiet || data == null) {
+        setState(() => loading = false);
+      }
+      if (mounted && !quiet) showToast(context, e.toString(), error: true);
     }
   }
 
-  void _open(Widget page) {
-    Navigator.of(context).push(
+  Future<void> _open(Widget page) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ColoredBox(color: Brand.mist, child: page),
       ),
     );
+    if (mounted) await _load(quiet: true);
   }
 
   @override

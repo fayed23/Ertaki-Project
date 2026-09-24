@@ -13,7 +13,7 @@ Living product map of what exists today.
 - Self-host path: no SaaS seat limits; JWT + bcrypt auth
 - Try Live ports (cloud): API `43124`, admin `43123`, Flutter web `43125`
 - Public GitHub: https://github.com/fayed23/Ertaki-Project
-- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.9-apk`
+- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.10-apk`
 - Configurable API base: `--dart-define=API_BASE_URL=...` + in-app field on login (persisted); cleartext HTTP allowed for LAN testing
 - Docs: `requirements.md`, `docs/decisions.md` (store), `docs/ertaki-portable-production-guide.md`, root `README.md`
 
@@ -27,6 +27,7 @@ Living product map of what exists today.
 - Seeds (password `password123`): supervisor `0500000001`, teacher `0500000002`, student `0500000003` (+ `0500000004`)
 - Flutter web demo: `?phone=…&auto=1`
 - Arabic RTL everywhere; Amiri for brand «ارتق», Cairo for UI
+- Branding: launcher + in-app mark from `assets/branding/app_logo.png`; login bottom-center + About (i) use `assets/branding/GroupLogo.png`
 
 ---
 
@@ -129,7 +130,7 @@ Living product map of what exists today.
 - **Supervisor admin (Next):** تفعيل معلمين · joins · groups (approve) · directory · policies — **no** «تقارير اليوم» / weekly tabs
 - **System Back:** nested navigators + PopScope — pops in-app routes first; non-home tab → home; home → confirm exit
 - **Swipe:** horizontal PageView between bottom-nav destinations for all roles, synced with NavigationBar
-- Hub category tiles show **unread/new count badges** (hidden when 0): joins, reports missing today, group approvals, notifications
+- Hub category tiles show **unread/new count badges** (hidden when 0): joins, reports missing today, group approvals, notifications — counts **auto-refresh** when returning to the hub (route pop), switching back to الرئيسية, re-tapping home, or app resume (no full page reload)
 - **Clock time pickers** everywhere (daily report, group schedule, admin deadline close) — no range/dual sliders
 
 ---

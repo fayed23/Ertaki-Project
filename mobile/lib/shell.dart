@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:ertaki_mobile/about.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/gate.dart';
 import 'package:ertaki_mobile/groups_catalog.dart';
+import 'package:ertaki_mobile/hub_menu.dart';
 import 'package:ertaki_mobile/notify.dart';
 import 'package:ertaki_mobile/notifications_inbox.dart';
 import 'package:ertaki_mobile/student_screens.dart';
@@ -25,6 +27,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   Map<String, dynamic>? me;
   bool? studentHasGroup;
   int tab = 0;
+  /// Bumped so hub homes quietly refetch badge counts (tab show / resume / re-tap).
+  final ValueNotifier<int> hubRefreshTick = ValueNotifier(0);
   late final PageController _pageController = PageController();
   final List<GlobalKey<NavigatorState>> _navKeys = List.generate(
     4,
@@ -41,13 +45,19 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    hubRefreshTick.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _requestHubBadgeRefresh() {
+    hubRefreshTick.value++;
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      if (tab == 0) _requestHubBadgeRefresh();
       NotifyHub.instance.pollAndAlert(api);
     }
   }
@@ -108,10 +118,45 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     );
   }
 
+  PreferredSizeWidget _brandAppBar() {
+    return AppBar(
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            'assets/branding/app_logo.png',
+            height: 32,
+            width: 32,
+            fit: BoxFit.contain,
+          ),
+          const SizedBox(width: 8),
+          Text('ارتق', style: brandStyle(size: 26)),
+        ],
+      ),
+      actions: [
+        IconButton(
+          tooltip: 'حول التطبيق',
+          onPressed: () => showAboutErtaki(context),
+          icon: const Icon(Icons.info_outline_rounded),
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        ),
+        IconButton(
+          tooltip: 'خروج',
+          onPressed: logout,
+          icon: const Icon(Icons.logout_rounded),
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        ),
+      ],
+    );
+  }
+
   void _goTab(int i, {bool animate = true}) {
     final safe = i.clamp(0, _navKeys.length - 1);
     setState(() => tab = safe);
-    if (!_pageController.hasClients) return;
+    if (!_pageController.hasClients) {
+      if (safe == 0) _requestHubBadgeRefresh();
+      return;
+    }
     if (animate) {
       _pageController.animateToPage(
         safe,
@@ -162,6 +207,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       color: Brand.mist,
       child: Navigator(
         key: _navKeys[index],
+        observers: [hubRouteObserver],
         onGenerateRoute: (settings) {
           return MaterialPageRoute(
             settings: settings,
@@ -224,17 +270,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         },
         child: Scaffold(
           backgroundColor: Brand.mist,
-          appBar: AppBar(
-            title: Text('ارتق', style: brandStyle(size: 26)),
-            actions: [
-              IconButton(
-                tooltip: 'خروج',
-                onPressed: logout,
-                icon: const Icon(Icons.logout_rounded),
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              ),
-            ],
-          ),
+          appBar: _brandAppBar(),
           body: Atmosphere(
             child: GroupsCatalogPage(
               api: api,
@@ -257,6 +293,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         SupervisorHome(
           api: api,
           me: me!,
+          refreshTick: hubRefreshTick,
           onGoJoins: () {
             _navKeys[0].currentState?.push(
               MaterialPageRoute(
@@ -291,6 +328,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         TeacherHome(
           api: api,
           me: me!,
+          refreshTick: hubRefreshTick,
           onOpenNotifications: () {
             _navKeys[0].currentState?.push(
               MaterialPageRoute(builder: (_) => _pushNotifications('teacher')),
@@ -332,21 +370,14 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       },
       child: Scaffold(
         backgroundColor: Brand.mist,
-        appBar: AppBar(
-          title: Text('ارتق', style: brandStyle(size: 26)),
-          actions: [
-            IconButton(
-              tooltip: 'خروج',
-              onPressed: logout,
-              icon: const Icon(Icons.logout_rounded),
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-            ),
-          ],
-        ),
+        appBar: _brandAppBar(),
         body: Atmosphere(
           child: PageView(
             controller: _pageController,
-            onPageChanged: (i) => setState(() => tab = i),
+            onPageChanged: (i) {
+              setState(() => tab = i);
+              if (i == 0) _requestHubBadgeRefresh();
+            },
             children: [
               for (var i = 0; i < pages.length; i++) _tabNavigator(i, pages[i]),
             ],
@@ -357,6 +388,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           onDestinationSelected: (i) {
             if (i == safeTab) {
               _navKeys[i].currentState?.popUntil((r) => r.isFirst);
+              if (i == 0) _requestHubBadgeRefresh();
             } else {
               _goTab(i);
             }
