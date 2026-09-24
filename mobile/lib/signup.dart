@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
+import 'package:ertaki_mobile/shell.dart';
 import 'package:ertaki_mobile/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -45,6 +47,18 @@ class _SignupPageState extends State<SignupPage> {
         'role': role,
         if (cityCtrl.text.trim().isNotEmpty) 'city': cityCtrl.text.trim(),
       });
+      final token = res['accessToken'] as String?;
+      if (token != null && role == 'student') {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', token);
+        if (!mounted) return;
+        showToast(context, res['message'] as String? ?? 'تم إنشاء الحساب');
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => HomeShell(token: token)),
+          (_) => false,
+        );
+        return;
+      }
       final msg = res['message'] as String? ??
           'تم إنشاء الحساب وبانتظار موافقة المشرف';
       setState(() => successMessage = msg);
@@ -75,7 +89,9 @@ class _SignupPageState extends State<SignupPage> {
                   Text('ارتق', style: brandStyle(size: 48), textAlign: TextAlign.center),
                   const SizedBox(height: 6),
                   Text(
-                    'تسجيل طالب أو معلم — التفعيل بعد موافقة المشرف',
+                    role == 'teacher'
+                        ? 'تسجيل معلم — التفعيل بعد موافقة المشرف'
+                        : 'تسجيل طالب — الحساب يُفعَّل فوراً ثم تختار مجموعة',
                     style: ui(size: 14, color: Brand.muted),
                     textAlign: TextAlign.center,
                   ),
@@ -90,7 +106,7 @@ class _SignupPageState extends State<SignupPage> {
                           Text(successMessage!, style: ui(size: 15, weight: FontWeight.w600)),
                           const SizedBox(height: 8),
                           Text(
-                            'لا يمكن تسجيل الدخول حتى يوافق المشرف على حسابك.',
+                            'حساب المعلم لا يمكنه الدخول حتى يوافق المشرف.',
                             style: ui(size: 13, color: Brand.muted),
                           ),
                           const SizedBox(height: 14),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
+import 'package:ertaki_mobile/groups_catalog.dart';
 import 'package:ertaki_mobile/report_detail.dart';
 import 'package:ertaki_mobile/widgets.dart';
 
@@ -78,6 +79,73 @@ class _TeacherHomeState extends State<TeacherHome> {
           SoftPanel(
             onTap: () {
               Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => TeacherJoinsPage(api: widget.api)),
+              );
+            },
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('طلبات الانضمام', style: ui(size: 16, weight: FontWeight.w700)),
+                      Text('قبول أو رفض طلبات مجموعاتك', style: ui(size: 13, color: Brand.muted)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_left, color: Brand.muted),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SoftPanel(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => WeeklyReportsPage(api: widget.api)),
+              );
+            },
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('التقارير الأسبوعية', style: ui(size: 16, weight: FontWeight.w700)),
+                      Text('موجز وتفصيلي — تُولَّد تلقائياً', style: ui(size: 13, color: Brand.muted)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_left, color: Brand.muted),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SoftPanel(
+            onTap: () async {
+              final ok = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(builder: (_) => CreateGroupPage(api: widget.api)),
+              );
+              if (ok == true) await _load();
+            },
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('إنشاء مجموعة', style: ui(size: 16, weight: FontWeight.w700)),
+                      Text('طلب موافقة المشرف قبل الفتح', style: ui(size: 13, color: Brand.muted)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.add_circle_outline, color: Brand.forestMid),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SoftPanel(
+            onTap: () {
+              Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => StaffReportsListPage(
                     api: widget.api,
@@ -143,14 +211,26 @@ class _TeacherHomeState extends State<TeacherHome> {
             const EmptyState(
               icon: Icons.groups_outlined,
               title: 'لا مجموعات معيّنة',
-              subtitle: 'اطلب من المشرف تعيينك لمجموعة',
+              subtitle: 'أنشئ مجموعة أو اطلب من المشرف تعيينك',
             )
           else
             ...groups.map((g) {
               final group = g['group'] as Map<String, dynamic>;
               final missingToday = (g['missingToday'] as num?)?.toInt() ?? 0;
+              final status = '${group['status'] ?? 'open'}';
               return SoftPanel(
                 margin: const EdgeInsets.only(bottom: 8),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => GroupDetailPage(
+                        api: widget.api,
+                        groupId: '${group['id']}',
+                        groupName: '${group['name']}',
+                      ),
+                    ),
+                  );
+                },
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -160,8 +240,12 @@ class _TeacherHomeState extends State<TeacherHome> {
                           child: Text('${group['name']}', style: ui(size: 16, weight: FontWeight.w700)),
                         ),
                         StatusChip(
-                          label: missingToday > 0 ? '$missingToday بلا تقرير' : 'اكتمل اليوم',
-                          tone: missingToday > 0 ? ChipTone.warn : ChipTone.ok,
+                          label: status == 'pending_approval'
+                              ? 'بانتظار الموافقة'
+                              : (missingToday > 0 ? '$missingToday بلا تقرير' : 'اكتمل اليوم'),
+                          tone: status == 'pending_approval'
+                              ? ChipTone.warn
+                              : (missingToday > 0 ? ChipTone.warn : ChipTone.ok),
                         ),
                       ],
                     ),
@@ -205,7 +289,7 @@ class TeacherStudents extends StatefulWidget {
 }
 
 class _TeacherStudentsState extends State<TeacherStudents> {
-  List<Map<String, dynamic>> students = [];
+  List<Map<String, dynamic>> groupBlocks = [];
   Map<String, dynamic>? dash;
   bool loading = true;
 
@@ -219,20 +303,25 @@ class _TeacherStudentsState extends State<TeacherStudents> {
     try {
       final d = await widget.api.get('/dashboards/teacher') as Map<String, dynamic>;
       final groups = (d['groups'] as List<dynamic>?) ?? [];
-      final list = <Map<String, dynamic>>[];
+      final blocks = <Map<String, dynamic>>[];
       for (final g in groups) {
         final group = g['group'] as Map<String, dynamic>;
+        final students = <Map<String, dynamic>>[];
         for (final s in (g['students'] as List<dynamic>? ?? [])) {
-          list.add({
+          students.add({
             ...Map<String, dynamic>.from(s as Map),
             'groupId': group['id'],
             'groupName': group['name'],
           });
         }
+        blocks.add({
+          'group': group,
+          'students': students,
+        });
       }
       setState(() {
         dash = d;
-        students = list;
+        groupBlocks = blocks;
         loading = false;
       });
     } catch (e) {
@@ -244,48 +333,102 @@ class _TeacherStudentsState extends State<TeacherStudents> {
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
-    final submittedIds = <String>{};
-    // Approximate: refetch daily reports for group would be better; use dashboard missing for chips via second call
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('طلبة مجموعاتي', style: ui(size: 22, weight: FontWeight.w700)),
-          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text('طلبة حسب المجموعة', style: ui(size: 22, weight: FontWeight.w700)),
+              ),
+              IconButton(
+                tooltip: 'إنشاء مجموعة',
+                onPressed: () async {
+                  final ok = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(builder: (_) => CreateGroupPage(api: widget.api)),
+                  );
+                  if (ok == true) await _load();
+                },
+                icon: const Icon(Icons.add_circle_outline),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
           Text('إحصاء اليوم: ${dash?['today']}', style: ui(size: 13, color: Brand.muted)),
           const SizedBox(height: 12),
-          if (students.isEmpty)
+          if (groupBlocks.isEmpty)
             const EmptyState(
               icon: Icons.school_outlined,
-              title: 'لا طلبة بعد',
-              subtitle: 'سيظهر الطلبة بعد قبول طلبات الانضمام',
+              title: 'لا مجموعات بعد',
+              subtitle: 'أنشئ مجموعة أو انتظر تعيين المشرف',
             )
           else
-            ...students.map((s) => SoftPanel(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('${s['name']}', style: ui(weight: FontWeight.w700)),
-                    subtitle: Text('${s['groupName']} · ${s['phone']}', style: ui(size: 12, color: Brand.muted)),
-                    trailing: const Icon(Icons.chevron_left),
-                    onTap: () async {
-                      await Navigator.of(context).push(
+            ...groupBlocks.map((block) {
+              final group = block['group'] as Map<String, dynamic>;
+              final students = block['students'] as List<Map<String, dynamic>>;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SoftPanel(
+                    onTap: () {
+                      Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => StudentFilePage(
+                          builder: (_) => GroupDetailPage(
                             api: widget.api,
-                            studentId: s['id'] as String,
-                            studentName: s['name'] as String,
-                            groupId: s['groupId'] as String?,
+                            groupId: '${group['id']}',
+                            groupName: '${group['name']}',
                           ),
                         ),
                       );
-                      await _load();
                     },
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text('${group['name']}', style: ui(size: 17, weight: FontWeight.w700)),
+                        ),
+                        StatusChip(
+                          label: '${students.length} طالب',
+                          tone: ChipTone.neutral,
+                        ),
+                        const Icon(Icons.chevron_left, color: Brand.muted),
+                      ],
+                    ),
                   ),
-                )),
-          // silence unused
-          if (submittedIds.isEmpty) const SizedBox.shrink(),
+                  const SizedBox(height: 8),
+                  if (students.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16, right: 8),
+                      child: Text('لا طلبة في هذه المجموعة بعد', style: ui(size: 13, color: Brand.muted)),
+                    )
+                  else
+                    ...students.map((s) => SoftPanel(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text('${s['name']}', style: ui(weight: FontWeight.w700)),
+                            subtitle: Text('${s['phone']}', style: ui(size: 12, color: Brand.muted)),
+                            trailing: const Icon(Icons.chevron_left),
+                            onTap: () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => StudentFilePage(
+                                    api: widget.api,
+                                    studentId: s['id'] as String,
+                                    studentName: s['name'] as String,
+                                    groupId: s['groupId'] as String?,
+                                  ),
+                                ),
+                              );
+                              await _load();
+                            },
+                          ),
+                        )),
+                  const SizedBox(height: 8),
+                ],
+              );
+            }),
         ],
       ),
     );
@@ -514,7 +657,7 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
           'status': status,
         });
       }
-      showToast(context, 'تم حفظ حضور مجلس اليوم');
+      showToast(context, 'تم حفظ حضور المجلس الأسبوعي');
     } catch (e) {
       showToast(context, e.toString(), error: true);
     } finally {
@@ -545,8 +688,8 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('حضور المجلس', style: ui(size: 22, weight: FontWeight.w700)),
-                Text('${groupName ?? ''} · ${todayIso()}', style: ui(size: 13, color: Brand.muted)),
+                Text('حضور المجلس الأسبوعي', style: ui(size: 22, weight: FontWeight.w700)),
+                Text('${groupName ?? ''} · أسبوع ${todayIso()}', style: ui(size: 13, color: Brand.muted)),
               ],
             ),
           ),
@@ -585,7 +728,7 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: FilledButton(
               onPressed: saving ? null : _saveAll,
-              child: Text(saving ? 'جاري الحفظ…' : 'حفظ حضور اليوم'),
+              child: Text(saving ? 'جاري الحفظ…' : 'حفظ الحضور الأسبوعي'),
             ),
           ),
         ),

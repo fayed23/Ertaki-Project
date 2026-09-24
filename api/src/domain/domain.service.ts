@@ -101,7 +101,29 @@ export class DomainService {
     await this.push.notify(recipientId, type, title, body, payload);
   }
 
-  /** Teacher of student's active group + all supervisors/admins. */
+  /** Teacher of student's active group only (not supervisors). */
+  private async notifyTeacherAboutStudent(
+    studentId: string,
+    type: string,
+    title: string,
+    body: string,
+    payload?: Record<string, unknown>,
+  ) {
+    const membership = await this.memberships.findOne({
+      where: { userId: studentId, leftAt: IsNull() },
+    });
+    if (!membership) return;
+    const group = await this.groups.findOne({
+      where: { id: membership.groupId },
+    });
+    if (!group?.teacherId) return;
+    await this.notify(group.teacherId, type, title, body, {
+      studentId,
+      ...(payload ?? {}),
+    });
+  }
+
+  /** Teacher of student's active group + all supervisors/admins (non-report events). */
   private async notifyStaffAboutStudent(
     studentId: string,
     type: string,
@@ -232,48 +254,272 @@ export class DomainService {
     actor: User,
     input: {
       name: string;
-      teacherId: string;
+      teacherId?: string;
       gender: string;
-      seatCount: number;
-      weeklySessionDay: string;
-      weeklySessionTime: string;
+      seatCount?: number;
+      weeklySessionDay?: string;
+      weeklySessionTime?: string;
+      sessionStartTime?: string;
+      sessionEndTime?: string;
       whatsappUrl?: string;
       description?: string;
     },
   ) {
-    this.requireSupervisor(actor);
-    const teacher = await this.users.findOne({ where: { id: input.teacherId } });
+    const isSupervisor = this.isSupervisor(actor);
+    const isTeacher = actor.role === UserRole.TEACHER;
+    if (!isSupervisor && !isTeacher) {
+      throw new ForbiddenException('صلاحية إنشاء المجموعات غير متاحة');
+    }
+    let teacherId = input.teacherId;
+    if (isTeacher) {
+      teacherId = actor.id;
+    }
+    if (!teacherId) throw new BadRequestException('المعلم مطلوب');
+    const teacher = await this.users.findOne({ where: { id: teacherId } });
     if (!teacher || teacher.role !== UserRole.TEACHER) {
       throw new BadRequestException('المعلم غير صالح');
     }
+    const start =
+      input.sessionStartTime ||
+      input.weeklySessionTime ||
+      '20:00';
+    const end = input.sessionEndTime || '21:00';
+    const status = isSupervisor
+      ? GroupStatus.OPEN
+      : GroupStatus.PENDING_APPROVAL;
     const group = await this.groups.save(
       this.groups.create({
         name: input.name,
         teacher,
         teacherId: teacher.id,
         gender: input.gender as never,
-        seatCount: input.seatCount,
-        weeklySessionDay: input.weeklySessionDay,
-        weeklySessionTime: input.weeklySessionTime,
+        seatCount: input.seatCount ?? 20,
+        weeklySessionDay: input.weeklySessionDay || 'السبت',
+        weeklySessionTime: start,
+        sessionStartTime: start,
+        sessionEndTime: end,
         whatsappUrl: input.whatsappUrl ?? null,
         description: input.description ?? null,
-        status: GroupStatus.OPEN,
+        status,
       }),
     );
     await this.auditLog(actor.id, 'group.create', 'group', group.id, null, {
       name: group.name,
+      status: group.status,
     });
-    return group;
+    if (status === GroupStatus.PENDING_APPROVAL) {
+      const supervisors = await this.users.find({
+        where: [{ role: UserRole.SUPERVISOR }, { role: UserRole.ADMIN }],
+      });
+      for (const s of supervisors) {
+        await this.notify(
+          s.id,
+          'group_pending_approval',
+          'طلب إنشاء مجموعة',
+          `${teacher.firstName} طلب إنشاء «${group.name}»`,
+          { groupId: group.id },
+        );
+      }
+    }
+    return this.enrichGroup(group);
   }
 
-  listGroups() {
-    return this.groups.find({ order: { createdAt: 'DESC' } });
+  async reviewGroupCreation(
+    actor: User,
+    groupId: string,
+    approve: boolean,
+    reviewNote?: string,
+  ) {
+    this.requireSupervisor(actor);
+    const group = await this.getGroup(groupId);
+    if (group.status !== GroupStatus.PENDING_APPROVAL) {
+      throw new BadRequestException('المجموعة ليست بانتظار الموافقة');
+    }
+    if (approve) {
+      group.status = GroupStatus.OPEN;
+      await this.groups.save(group);
+      await this.notify(
+        group.teacherId,
+        'group_approved',
+        'تمت الموافقة على المجموعة',
+        `مجموعة «${group.name}» أصبحت مفتوحة للانضمام`,
+        { groupId: group.id },
+      );
+    } else {
+      group.status = GroupStatus.CLOSED;
+      group.description = [
+        group.description || '',
+        reviewNote ? `رفض المشرف: ${reviewNote}` : 'رفض المشرف إنشاء المجموعة',
+      ]
+        .filter(Boolean)
+        .join('\n');
+      await this.groups.save(group);
+      await this.notify(
+        group.teacherId,
+        'group_rejected',
+        'رُفض إنشاء المجموعة',
+        reviewNote || `رفض المشرف مجموعة «${group.name}»`,
+        { groupId: group.id },
+      );
+    }
+    return this.enrichGroup(group);
+  }
+
+  async listGroups(actor?: User) {
+    const rows = await this.groups.find({ order: { createdAt: 'DESC' } });
+    let filtered = rows;
+    if (actor?.role === UserRole.STUDENT) {
+      filtered = rows.filter((g) => g.status === GroupStatus.OPEN);
+    } else if (actor?.role === UserRole.TEACHER) {
+      filtered = rows.filter(
+        (g) =>
+          g.teacherId === actor.id ||
+          g.status === GroupStatus.OPEN ||
+          g.status === GroupStatus.FULL,
+      );
+    }
+    return Promise.all(filtered.map((g) => this.enrichGroup(g)));
   }
 
   async getGroup(id: string) {
     const group = await this.groups.findOne({ where: { id } });
     if (!group) throw new NotFoundException('المجموعة غير موجودة');
     return group;
+  }
+
+  async getGroupBrief(actor: User, id: string) {
+    const group = await this.enrichGroup(await this.getGroup(id));
+    this.assertCanViewGroup(actor, group.teacherId);
+    const members = await this.memberships.find({
+      where: { groupId: id, leftAt: IsNull() },
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    const allowReportContent = actor.role === UserRole.TEACHER;
+    const students = [];
+    for (const m of members) {
+      const u = m.user;
+      const report = await this.dailyReports.findOne({
+        where: { studentId: u.id, reportDate: today },
+      });
+      const dailyReportToday = allowReportContent
+        ? report
+          ? {
+              id: report.id,
+              submitted: true,
+              memorizedQuota: report.memorizedQuota,
+            }
+          : { submitted: false }
+        : { submitted: !!report };
+      students.push({
+        id: u.id,
+        name: `${u.firstName} ${u.lastName}`,
+        phone: u.phone,
+        status: u.status,
+        dailyReportToday,
+      });
+    }
+    return { group, students, today, mode: 'brief' };
+  }
+
+  async getGroupDetailed(actor: User, id: string) {
+    const brief = await this.getGroupBrief(actor, id);
+    const members = await this.memberships.find({
+      where: { groupId: id, leftAt: IsNull() },
+    });
+    const allowReportContent = actor.role === UserRole.TEACHER;
+    const detailedStudents = [];
+    for (const m of members) {
+      const sid = m.userId;
+      const [notes, infractions, quotas, attendance] = await Promise.all([
+        this.notes.find({
+          where: { studentId: sid },
+          order: { noteDate: 'DESC' },
+          take: 20,
+        }),
+        this.infractions.find({
+          where: { studentId: sid },
+          order: { createdAt: 'DESC' },
+          take: 20,
+        }),
+        this.quotas.findOne({ where: { studentId: sid } }),
+        this.attendance.find({
+          where: { studentId: sid, groupId: id },
+          order: { sessionDate: 'DESC' },
+          take: 12,
+        }),
+      ]);
+      let reports: unknown[] = [];
+      let weekly: unknown[] = [];
+      if (allowReportContent) {
+        const reportRows = await this.dailyReports.find({
+          where: { studentId: sid },
+          order: { reportDate: 'DESC' },
+          take: 14,
+        });
+        reports = await Promise.all(
+          reportRows.map((r) => this.enrichDailyReport(r)),
+        );
+        const weeklyRows = await this.weeklyReports.find({
+          where: { studentId: sid },
+          order: { weekStartDate: 'DESC' },
+          take: 8,
+        });
+        weekly = weeklyRows.map((w) => this.formatWeekly(w, 'detailed'));
+      }
+      detailedStudents.push({
+        ...brief.students.find((s) => s.id === sid),
+        membership: { joinedAt: m.joinedAt },
+        reports,
+        notes,
+        infractions,
+        quota: quotas,
+        attendance,
+        weeklyReports: weekly,
+      });
+    }
+    return { ...brief, students: detailedStudents, mode: 'detailed' };
+  }
+
+  private assertCanViewGroup(actor: User, teacherId: string) {
+    if (this.isSupervisor(actor)) return;
+    if (actor.role === UserRole.TEACHER && actor.id === teacherId) return;
+    throw new ForbiddenException();
+  }
+
+  async enrichGroup(group: Group) {
+    const teacher =
+      group.teacher ||
+      (await this.users.findOne({ where: { id: group.teacherId } }));
+    const start = group.sessionStartTime || group.weeklySessionTime;
+    const end = group.sessionEndTime || null;
+    return {
+      id: group.id,
+      name: group.name,
+      teacherId: group.teacherId,
+      teacherName: teacher
+        ? `${teacher.firstName} ${teacher.lastName}`
+        : null,
+      teacher: teacher
+        ? {
+            id: teacher.id,
+            firstName: teacher.firstName,
+            lastName: teacher.lastName,
+            phone: teacher.phone,
+          }
+        : null,
+      gender: group.gender,
+      seatCount: group.seatCount,
+      currentStudentCount: group.currentStudentCount,
+      weeklySessionDay: group.weeklySessionDay,
+      weeklySessionTime: start,
+      sessionStartTime: start,
+      sessionEndTime: end,
+      status: group.status,
+      whatsappUrl: group.whatsappUrl,
+      description: group.description,
+      createdAt: group.createdAt,
+      updatedAt: group.updatedAt,
+    };
   }
 
   async requestJoin(actor: User, groupId: string) {
@@ -284,10 +530,10 @@ export class DomainService {
     if (group.status !== GroupStatus.OPEN) {
       throw new BadRequestException('المجموعة غير مفتوحة للانضمام');
     }
-    const active = await this.memberships.findOne({
-      where: { userId: actor.id, leftAt: IsNull() },
+    const alreadyMember = await this.memberships.findOne({
+      where: { userId: actor.id, groupId, leftAt: IsNull() },
     });
-    if (active) throw new BadRequestException('أنت منضم لمجموعة حالياً');
+    if (alreadyMember) throw new BadRequestException('أنت منضم لهذه المجموعة');
     const pending = await this.joinRequests.findOne({
       where: {
         studentId: actor.id,
@@ -295,7 +541,7 @@ export class DomainService {
         status: JoinRequestStatus.PENDING,
       },
     });
-    if (pending) throw new BadRequestException('لديك طلب قيد المراجعة');
+    if (pending) throw new BadRequestException('لديك طلب قيد المراجعة لهذه المجموعة');
     const req = await this.joinRequests.save(
       this.joinRequests.create({
         student: actor,
@@ -305,25 +551,42 @@ export class DomainService {
         status: JoinRequestStatus.PENDING,
       }),
     );
-    await this.users.update(actor.id, { status: UserStatus.PENDING_GROUP });
+    const hasAnyMembership = await this.memberships.findOne({
+      where: { userId: actor.id, leftAt: IsNull() },
+    });
+    if (!hasAnyMembership) {
+      await this.users.update(actor.id, { status: UserStatus.PENDING_GROUP });
+    }
+    const recipients = new Set<string>([group.teacherId]);
     const supervisors = await this.users.find({
       where: [{ role: UserRole.SUPERVISOR }, { role: UserRole.ADMIN }],
     });
-    for (const s of supervisors) {
+    for (const s of supervisors) recipients.add(s.id);
+    for (const id of recipients) {
       await this.notify(
-        s.id,
+        id,
         'join_request',
         'طلب انضمام جديد',
         `${actor.firstName} ${actor.lastName} طلب الانضمام إلى ${group.name}`,
-        { joinRequestId: req.id },
+        { joinRequestId: req.id, groupId },
       );
     }
     return req;
   }
 
-  listJoinRequests(actor: User) {
+  async listJoinRequests(actor: User) {
+    if (actor.role === UserRole.STUDENT) {
+      return this.joinRequests.find({
+        where: { studentId: actor.id },
+        order: { createdAt: 'DESC' },
+      });
+    }
     this.requireStaff(actor);
-    return this.joinRequests.find({ order: { createdAt: 'DESC' } });
+    const rows = await this.joinRequests.find({ order: { createdAt: 'DESC' } });
+    if (actor.role === UserRole.TEACHER) {
+      return rows.filter((r) => r.group?.teacherId === actor.id);
+    }
+    return rows;
   }
 
   async reviewJoinRequest(
@@ -332,14 +595,22 @@ export class DomainService {
     accept: boolean,
     reviewNote?: string,
   ) {
-    this.requireSupervisor(actor);
+    if (!this.isSupervisor(actor) && actor.role !== UserRole.TEACHER) {
+      throw new ForbiddenException('صلاحية المشرف أو معلم المجموعة فقط');
+    }
     const req = await this.joinRequests.findOne({ where: { id } });
     if (!req || req.status !== JoinRequestStatus.PENDING) {
       throw new BadRequestException('الطلب غير صالح للمراجعة');
     }
+    const group = await this.getGroup(req.groupId);
+    if (
+      actor.role === UserRole.TEACHER &&
+      group.teacherId !== actor.id
+    ) {
+      throw new ForbiddenException('هذه المجموعة ليست ضمن مجموعاتك');
+    }
     const before = { status: req.status };
     if (accept) {
-      const group = await this.getGroup(req.groupId);
       if (group.currentStudentCount >= group.seatCount) {
         throw new BadRequestException('المجموعة ممتلئة');
       }
@@ -373,7 +644,15 @@ export class DomainService {
       req.reviewedById = actor.id;
       req.reviewNote = reviewNote ?? null;
       await this.joinRequests.save(req);
-      await this.users.update(req.studentId, { status: UserStatus.NEW });
+      const stillPending = await this.joinRequests.findOne({
+        where: { studentId: req.studentId, status: JoinRequestStatus.PENDING },
+      });
+      const membership = await this.memberships.findOne({
+        where: { userId: req.studentId, leftAt: IsNull() },
+      });
+      if (!membership && !stillPending) {
+        await this.users.update(req.studentId, { status: UserStatus.NEW });
+      }
       await this.notify(
         req.studentId,
         'join_rejected',
@@ -386,6 +665,67 @@ export class DomainService {
       status: req.status,
     });
     return req;
+  }
+
+  async studentHasMembership(actor: User) {
+    if (actor.role !== UserRole.STUDENT) return { hasGroup: true };
+    const m = await this.memberships.findOne({
+      where: { userId: actor.id, leftAt: IsNull() },
+    });
+    return { hasGroup: !!m, membership: m };
+  }
+
+  async listDirectory(actor: User) {
+    this.requireSupervisor(actor);
+    const [students, teachers, groups] = await Promise.all([
+      this.users.find({
+        where: { role: UserRole.STUDENT },
+        order: { createdAt: 'DESC' },
+      }),
+      this.users.find({
+        where: { role: UserRole.TEACHER },
+        order: { createdAt: 'DESC' },
+      }),
+      this.listGroups(actor),
+    ]);
+    const strip = (u: User) => {
+      const { passwordHash: _, ...safe } = u;
+      return safe;
+    };
+    return {
+      students: students.map(strip),
+      teachers: teachers.map(strip),
+      groups,
+    };
+  }
+
+  private formatWeekly(
+    w: WeeklyReport,
+    mode: 'brief' | 'detailed' = 'brief',
+  ) {
+    const student = w.student;
+    const base = {
+      id: w.id,
+      studentId: w.studentId,
+      studentName: student
+        ? `${student.firstName} ${student.lastName}`
+        : null,
+      groupId: w.groupId,
+      groupName: w.group?.name ?? null,
+      weekStartDate: w.weekStartDate,
+      weekEndDate: w.weekEndDate,
+      dailyReportsSubmitted: w.dailyReportsSubmitted,
+      quotaDaysMet: w.quotaDaysMet,
+      fiftyRepsDaysMet: w.fiftyRepsDaysMet,
+      presentSessions: w.presentSessions,
+      excusedAbsences: w.excusedAbsences,
+      unexcusedAbsences: w.unexcusedAbsences,
+      studentConfirmedAt: w.studentConfirmedAt,
+      generatedAt: w.generatedAt,
+      mode,
+    };
+    if (mode === 'brief') return base;
+    return { ...base, summaryJson: w.summaryJson };
   }
 
   async myMembership(actor: User) {
@@ -448,7 +788,7 @@ export class DomainService {
       }),
     );
     await this.evaluateContentInfractions(actor.id, report);
-    await this.notifyStaffAboutStudent(
+    await this.notifyTeacherAboutStudent(
       actor.id,
       'daily_report_submitted',
       'تقرير يومي جديد',
@@ -464,9 +804,9 @@ export class DomainService {
   }
 
   /**
-   * Visibility (locked): teachers + supervisors only for others' reports.
+   * Visibility (locked): teacher of the student's group only for others' reports.
+   * Supervisors never list/open daily report content.
    * Students see only their own. Peers never see classmate submit status.
-   * No missing-by-deadline infractions in MVP.
    */
   async listDailyReports(
     actor: User,
@@ -483,9 +823,14 @@ export class DomainService {
       });
       return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
     }
-    this.requireStaff(actor);
+    if (this.isSupervisor(actor)) {
+      throw new ForbiddenException(
+        'التقارير اليومية متاحة للمعلم فقط — المشرف لا يطّلع على محتوى التقارير',
+      );
+    }
+    this.requireTeacher(actor);
     if (filters.studentId) {
-      await this.assertStaffCanViewStudent(actor, filters.studentId);
+      await this.assertTeacherOwnsStudent(actor, filters.studentId);
       rows = await this.dailyReports.find({
         where: {
           studentId: filters.studentId,
@@ -495,59 +840,49 @@ export class DomainService {
       });
       return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
     }
-    if (filters.groupId || actor.role === UserRole.TEACHER) {
-      let groupId = filters.groupId;
-      if (actor.role === UserRole.TEACHER) {
-        const myGroups = await this.groups.find({
-          where: { teacherId: actor.id },
-        });
-        const ids = myGroups.map((g) => g.id);
-        if (groupId && !ids.includes(groupId)) {
-          throw new ForbiddenException();
-        }
-        if (!groupId && ids.length === 1) groupId = ids[0];
-        if (!groupId) {
-          const memberIds = (
-            await this.memberships.find({
-              where: ids.map((id) => ({ groupId: id, leftAt: IsNull() })),
-            })
-          ).map((m) => m.userId);
-          if (!memberIds.length) return [];
-          rows = await this.dailyReports
-            .createQueryBuilder('r')
-            .leftJoinAndSelect('r.student', 'student')
-            .where('r.studentId IN (:...memberIds)', { memberIds })
-            .orderBy('r.reportDate', 'DESC')
-            .addOrderBy('r.submittedAt', 'DESC')
-            .take(200)
-            .getMany();
-          return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
-        }
-      }
-      const members = await this.memberships.find({
-        where: { groupId: groupId!, leftAt: IsNull() },
-      });
-      const memberIds = members.map((m) => m.userId);
+    const myGroups = await this.groups.find({
+      where: { teacherId: actor.id },
+    });
+    const ids = myGroups.map((g) => g.id);
+    let groupId = filters.groupId;
+    if (groupId && !ids.includes(groupId)) {
+      throw new ForbiddenException();
+    }
+    if (!groupId && ids.length === 1) groupId = ids[0];
+    if (!groupId) {
+      const memberIds = (
+        await this.memberships.find({
+          where: ids.map((id) => ({ groupId: id, leftAt: IsNull() })),
+        })
+      ).map((m) => m.userId);
       if (!memberIds.length) return [];
-      const qb = this.dailyReports
+      rows = await this.dailyReports
         .createQueryBuilder('r')
         .leftJoinAndSelect('r.student', 'student')
-        .where('r.studentId IN (:...memberIds)', { memberIds });
-      if (filters.reportDate) {
-        qb.andWhere('r.reportDate = :d', { d: filters.reportDate });
-      }
-      rows = await qb
+        .where('r.studentId IN (:...memberIds)', { memberIds })
         .orderBy('r.reportDate', 'DESC')
         .addOrderBy('r.submittedAt', 'DESC')
         .take(200)
         .getMany();
       return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
     }
-    rows = await this.dailyReports.find({
-      where: filters.reportDate ? { reportDate: filters.reportDate } : {},
-      order: { reportDate: 'DESC', submittedAt: 'DESC' },
-      take: 200,
+    const members = await this.memberships.find({
+      where: { groupId, leftAt: IsNull() },
     });
+    const memberIds = members.map((m) => m.userId);
+    if (!memberIds.length) return [];
+    const qb = this.dailyReports
+      .createQueryBuilder('r')
+      .leftJoinAndSelect('r.student', 'student')
+      .where('r.studentId IN (:...memberIds)', { memberIds });
+    if (filters.reportDate) {
+      qb.andWhere('r.reportDate = :d', { d: filters.reportDate });
+    }
+    rows = await qb
+      .orderBy('r.reportDate', 'DESC')
+      .addOrderBy('r.submittedAt', 'DESC')
+      .take(200)
+      .getMany();
     return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
   }
 
@@ -556,15 +891,18 @@ export class DomainService {
     if (!report) throw new NotFoundException('التقرير غير موجود');
     if (actor.role === UserRole.STUDENT) {
       if (report.studentId !== actor.id) throw new ForbiddenException();
+    } else if (this.isSupervisor(actor)) {
+      throw new ForbiddenException(
+        'التقارير اليومية متاحة للمعلم فقط — المشرف لا يطّلع على محتوى التقارير',
+      );
     } else {
-      this.requireStaff(actor);
-      await this.assertStaffCanViewStudent(actor, report.studentId);
+      this.requireTeacher(actor);
+      await this.assertTeacherOwnsStudent(actor, report.studentId);
     }
     return this.enrichDailyReport(report);
   }
 
-  private async assertStaffCanViewStudent(actor: User, studentId: string) {
-    if (this.isSupervisor(actor)) return;
+  private async assertTeacherOwnsStudent(actor: User, studentId: string) {
     if (actor.role !== UserRole.TEACHER) throw new ForbiddenException();
     const myGroups = await this.groups.find({ where: { teacherId: actor.id } });
     const ids = myGroups.map((g) => g.id);
@@ -1037,12 +1375,21 @@ export class DomainService {
   }
 
   async generateWeeklyReport(
-    actor: User,
+    actor: User | null,
     studentId: string,
     weekStartDate: string,
     weekEndDate: string,
+    opts?: { silent?: boolean },
   ) {
-    this.requireStaff(actor);
+    if (actor) {
+      if (this.isSupervisor(actor)) {
+        throw new ForbiddenException(
+          'التقارير الأسبوعية للمعلم فقط — المشرف لا يولّد أو يطّلع على محتوى التقارير',
+        );
+      }
+      this.requireTeacher(actor);
+      await this.assertTeacherOwnsStudent(actor, studentId);
+    }
     const membership = await this.memberships.findOne({
       where: { userId: studentId, leftAt: IsNull() },
     });
@@ -1064,6 +1411,7 @@ export class DomainService {
     let existing = await this.weeklyReports.findOne({
       where: { studentId, weekStartDate },
     });
+    const wasNew = !existing;
     const payload = {
       studentId,
       groupId: membership?.groupId ?? null,
@@ -1082,6 +1430,7 @@ export class DomainService {
       summaryJson: {
         dailyReportIds: dailies.map((d) => d.id),
         attendanceIds: att.map((a) => a.id),
+        dailyCount: dailies.length,
       },
       generatedAt: new Date(),
     };
@@ -1091,14 +1440,96 @@ export class DomainService {
       existing = this.weeklyReports.create(payload);
     }
     const saved = await this.weeklyReports.save(existing);
-    await this.notify(
-      studentId,
-      'weekly_report',
-      'تقرير أسبوعي جاهز للتأكيد',
-      `الأسبوع ${weekStartDate} — ${weekEndDate}`,
-      { weeklyReportId: saved.id },
-    );
+    if (!opts?.silent && wasNew) {
+      await this.notify(
+        studentId,
+        'weekly_report',
+        'تقرير أسبوعي جاهز للتأكيد',
+        `الأسبوع ${weekStartDate} — ${weekEndDate}`,
+        { weeklyReportId: saved.id },
+      );
+    }
     return saved;
+  }
+
+  /** Auto-generate weekly reports for the completed Sat–Fri week (Africa/Algiers). */
+  async autoGenerateWeeklyReports(timezone = 'Africa/Algiers') {
+    const { weekStart, weekEnd } = this.previousWeekBounds(timezone);
+    const members = await this.memberships.find({ where: { leftAt: IsNull() } });
+    const studentIds = [...new Set(members.map((m) => m.userId))];
+    let created = 0;
+    for (const studentId of studentIds) {
+      const existing = await this.weeklyReports.findOne({
+        where: { studentId, weekStartDate: weekStart },
+      });
+      if (existing) continue;
+      const saved = await this.generateWeeklyReport(
+        null,
+        studentId,
+        weekStart,
+        weekEnd,
+        { silent: true },
+      );
+      created++;
+      await this.notify(
+        studentId,
+        'weekly_report',
+        'تقريرك الأسبوعي جاهز',
+        `الأسبوع ${weekStart} — ${weekEnd}`,
+        { weeklyReportId: saved.id },
+      );
+      const membership = members.find((m) => m.userId === studentId);
+      if (membership?.groupId) {
+        const group = await this.groups.findOne({
+          where: { id: membership.groupId },
+        });
+        if (group?.teacherId) {
+          await this.notify(
+            group.teacherId,
+            'weekly_report_staff',
+            'تقرير أسبوعي تلقائي',
+            `تقرير أسبوعي للطالب جاهز (${weekStart})`,
+            { weeklyReportId: saved.id, studentId },
+          );
+        }
+      }
+    }
+    return { weekStart, weekEnd, created };
+  }
+
+  private previousWeekBounds(timezone: string) {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short',
+    });
+    const parts = Object.fromEntries(
+      fmt.formatToParts(new Date()).map((p) => [p.type, p.value]),
+    );
+    const today = new Date(`${parts.year}-${parts.month}-${parts.day}T12:00:00Z`);
+    const weekday = parts.weekday; // Mon, Tue, ...
+    const map: Record<string, number> = {
+      Sat: 0,
+      Sun: 1,
+      Mon: 2,
+      Tue: 3,
+      Wed: 4,
+      Thu: 5,
+      Fri: 6,
+    };
+    const offset = map[weekday] ?? 0;
+    // Start of current week (Saturday)
+    const currentSat = new Date(today);
+    currentSat.setUTCDate(today.getUTCDate() - offset);
+    // Previous week: Sat..Fri before current Saturday
+    const prevSat = new Date(currentSat);
+    prevSat.setUTCDate(currentSat.getUTCDate() - 7);
+    const prevFri = new Date(prevSat);
+    prevFri.setUTCDate(prevSat.getUTCDate() + 6);
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    return { weekStart: iso(prevSat), weekEnd: iso(prevFri) };
   }
 
   async confirmWeeklyReport(actor: User, id: string) {
@@ -1107,24 +1538,80 @@ export class DomainService {
     if (actor.role === UserRole.STUDENT && report.studentId !== actor.id) {
       throw new ForbiddenException();
     }
-    if (actor.role !== UserRole.STUDENT) this.requireStaff(actor);
+    if (actor.role === UserRole.TEACHER) {
+      await this.assertTeacherOwnsStudent(actor, report.studentId);
+    } else if (actor.role !== UserRole.STUDENT) {
+      throw new ForbiddenException(
+        'التقارير الأسبوعية متاحة للمعلم والطالب فقط',
+      );
+    }
     report.studentConfirmedAt = new Date();
     return this.weeklyReports.save(report);
   }
 
-  listWeeklyReports(actor: User, studentId?: string) {
+  async listWeeklyReports(
+    actor: User,
+    studentId?: string,
+    mode: 'brief' | 'detailed' = 'brief',
+  ) {
+    if (this.isSupervisor(actor)) {
+      throw new ForbiddenException(
+        'التقارير الأسبوعية متاحة للمعلم فقط — المشرف لا يطّلع عليها',
+      );
+    }
+    let rows: WeeklyReport[];
     if (actor.role === UserRole.STUDENT) {
-      return this.weeklyReports.find({
+      rows = await this.weeklyReports.find({
         where: { studentId: actor.id },
         order: { weekStartDate: 'DESC' },
       });
+    } else {
+      this.requireTeacher(actor);
+      if (!studentId) {
+        const groups = await this.groups.find({ where: { teacherId: actor.id } });
+        const gids = groups.map((g) => g.id);
+        if (!gids.length) return [];
+        rows = await this.weeklyReports
+          .createQueryBuilder('w')
+          .leftJoinAndSelect('w.student', 'student')
+          .leftJoinAndSelect('w.group', 'group')
+          .where('w.groupId IN (:...gids)', { gids })
+          .orderBy('w.weekStartDate', 'DESC')
+          .take(200)
+          .getMany();
+      } else {
+        await this.assertTeacherOwnsStudent(actor, studentId);
+        rows = await this.weeklyReports.find({
+          where: { studentId },
+          order: { weekStartDate: 'DESC' },
+          take: 200,
+        });
+      }
     }
-    this.requireStaff(actor);
-    return this.weeklyReports.find({
-      where: studentId ? { studentId } : {},
-      order: { weekStartDate: 'DESC' },
-      take: 100,
-    });
+    return rows.map((w) => this.formatWeekly(w, mode));
+  }
+
+  async getWeeklyReport(
+    actor: User,
+    id: string,
+    mode: 'brief' | 'detailed' = 'detailed',
+  ) {
+    if (this.isSupervisor(actor)) {
+      throw new ForbiddenException(
+        'التقارير الأسبوعية متاحة للمعلم فقط — المشرف لا يطّلع عليها',
+      );
+    }
+    const report = await this.weeklyReports.findOne({ where: { id } });
+    if (!report) throw new NotFoundException();
+    if (actor.role === UserRole.STUDENT && report.studentId !== actor.id) {
+      throw new ForbiddenException();
+    }
+    if (actor.role === UserRole.TEACHER) {
+      await this.assertTeacherOwnsStudent(actor, report.studentId);
+    } else if (actor.role !== UserRole.STUDENT) {
+      throw new ForbiddenException();
+    }
+    return this.formatWeekly(report, mode);
   }
 
   async changeGroup(
@@ -1310,7 +1797,6 @@ export class DomainService {
       pendingAccounts,
       activeStudents,
       openInfractions,
-      reportsToday,
     ] = await Promise.all([
       this.users.count({ where: { role: UserRole.STUDENT } }),
       this.users.count({ where: { role: UserRole.TEACHER } }),
@@ -1321,16 +1807,7 @@ export class DomainService {
         where: { role: UserRole.STUDENT, status: UserStatus.ACTIVE },
       }),
       this.infractions.count({ where: { resolved: false } }),
-      this.dailyReports.count({ where: { reportDate: today } }),
     ]);
-    const todayRaw = await this.dailyReports.find({
-      where: { reportDate: today },
-      order: { submittedAt: 'DESC' },
-      take: 50,
-    });
-    const todayReports = await Promise.all(
-      todayRaw.map((r) => this.enrichDailyReport(r)),
-    );
     return {
       today,
       students,
@@ -1340,8 +1817,6 @@ export class DomainService {
       pendingAccounts,
       activeStudents,
       openInfractions,
-      reportsToday,
-      todayReports,
     };
   }
 
@@ -1352,6 +1827,12 @@ export class DomainService {
       )
     ) {
       throw new ForbiddenException('صلاحية الموظفين فقط');
+    }
+  }
+
+  private requireTeacher(actor: User) {
+    if (actor.role !== UserRole.TEACHER) {
+      throw new ForbiddenException('صلاحية المعلم فقط');
     }
   }
 

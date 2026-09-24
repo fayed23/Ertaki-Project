@@ -13,7 +13,7 @@ Living product map of what exists today.
 - Self-host path: no SaaS seat limits; JWT + bcrypt auth
 - Try Live ports (cloud): API `43124`, admin `43123`, Flutter web `43125`
 - Public GitHub: https://github.com/fayed23/Ertaki-Project
-- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.4-apk`
+- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.5-apk`
 - Configurable API base: `--dart-define=API_BASE_URL=...` + in-app field on login (persisted); cleartext HTTP allowed for LAN testing
 - Docs: `requirements.md`, `docs/decisions.md` (store), `docs/ertaki-portable-production-guide.md`, root `README.md`
 
@@ -35,51 +35,56 @@ Living product map of what exists today.
 - Login / JWT session; password hashes excluded from API responses
 - Role-based Nest guards + domain checks (server is source of truth)
 - **Public self-registration (Flutter):** `student` or `teacher` only — not supervisor/admin
-- New signups start as `pending_approval` / inactive; login blocked with clear Arabic message until supervisor approves
-- Supervisor **approve** → account active (student `new` for join flow, teacher `active`); **reject** → stays blocked with optional reason
-- Seeded accounts remain active; join-group requests stay a separate workflow from account activation
-- Endpoints: `POST /auth/register`, `GET/PATCH /account-approvals` (supervisor/admin)
+- **Student signup:** activates **immediately** (`new` + JWT); first-run locked until group membership — groups catalog / multi join requests
+- **Teacher signup:** `pending_approval` / inactive until supervisor approves; login blocked with clear Arabic message
+- Legacy pending students migrate to active+needs-group on login
+- Endpoints: `POST /auth/register`, `GET/PATCH /account-approvals` (supervisor/admin — teachers)
 - Device token registration endpoint for optional FCM
-- Notify supervisors on new pending signup; notify user on approve/reject (in-app stub + FCM when keyed)
+- Notify supervisors on new **teacher** pending signup; notify user on approve/reject
 
 ---
 
 ## Groups, membership & joins
 
-- Groups: teacher, gender, seats, مجلس day/time, status, external **WhatsApp** URL
-- Membership history (`joinedAt` / `leftAt`) — not a single static group field on user
-- Join requests: pending / accepted / rejected; supervisor accept/reject (admin web + Flutter)
-- Seat progress bars + status chips on group lists
-- Student “مجموعتي” with WhatsApp button + excuse request form
+- Groups: teacher, gender, seats, مجلس day + **start→finish** time, status (`pending_approval` / `open` / …), WhatsApp URL, description
+- **Teacher create group** → `pending_approval` until supervisor `PATCH /groups/:id/approval`
+- Supervisor/admin create → `open` immediately
+- Membership history (`joinedAt` / `leftAt`)
+- Join requests: student may request **one or many** open groups; visible to **group teacher and supervisors**
+- Accept by **teacher OR supervisor** (single resolution clears for the other); reject supported
+- After ≥1 accepted membership → student features unlock (`GET /memberships/has-group`)
+- Group views (teacher + supervisor): **brief** (students + daily-submit status) / **detailed** (membership, attendance, notes, infractions, quotas; **report bodies only for teacher**)
+- Supervisor directory: `GET /directory` — all students, teachers, groups
+- Student “مجموعتي” with WhatsApp + excuse form
 
 ---
 
 ## Daily report (التقرير اليومي)
 
-- Structured fields (not free text): حفظ القسط, times from–to, ورد المراجعة + times, 50 تكرار, مجلس واحد, تفسير
-- **Single-screen form** (all fields visible) + sticky submit — no step wizard
-- **Time entry:** dual **time range sliders** (HH:mm, 5‑minute snap) for حفظ from–to and مراجعة from–to — no free-text clock typing; end ≥ start
-- Admin: report-deadline **close time** also set via time slider (policies tab)
-- **No edit after submit**; locked empty state if already sent today
-- Visibility: **staff only** — students never see peers’ reports or submit status
-- **Staff report detail:** `GET /daily-reports/:id` returns student name + group + all fields
-- Teacher / supervisor open full detail from: notification (`daily_report_submitted` → reportId), student file report rows, today’s reports list, dashboard “تقارير اليوم” links
-- Admin web: «تقارير اليوم» tab with list + detail pane
-- Content-based تقصير evaluation (quota / reps / etc.) via policies — not clock-only missing-report infractions
+- Structured fields: حفظ القسط, times from–to, ورد المراجعة + times, 50 تكرار, مجلس واحد, تفسير
+- Single-screen form + sticky submit; **time range sliders** (5‑min snap)
+- **No edit after submit**
+- Visibility (locked):
+  - **Teacher** of the student’s group: list + full detail + `daily_report_submitted` notification
+  - **Supervisor: no** daily report list, detail, dash widgets, or report notifications
+  - **Student:** own reports only; never peers
+- Content-based تقصير via policies — not clock-only missing-report infractions
 
 ---
 
 ## Weekly report
 
-- System-generated from daily + attendance
-- Student confirmation flow (`PATCH …/confirm`) on progress screen
+- Auto-generated after each week (cron Sat 00:15 Africa/Algiers) from daily + attendance
+- **Teacher only:** brief + detailed list/detail (`GET /weekly-reports?mode=…`); staff notify on auto-gen
+- **Supervisor: no** weekly list/detail/notifications
+- Student confirmation (`PATCH …/confirm`) on progress screen
 
 ---
 
 ## Attendance & excuses
 
-- Teacher marks present / بعذر / بلا عذر (optional late / left early fields in model)
-- Student can submit absence excuse; staff review endpoints
+- Teacher marks weekly مجلس attendance (UI copy: **أسبوعي** / حفظ الحضور الأسبوعي — not daily)
+- Student absence excuse; staff review
 - Unexcused absence can create تقصير per policy
 - Staff (+ student) notified on excused/unexcused recording
 
@@ -96,44 +101,43 @@ Living product map of what exists today.
 ## Infractions (تقصير)
 
 - Types from content/attendance (missed quota, missed 50, unexcused absence, …)
-- **InfractionPolicy** admin-configurable thresholds/actions — no hard-coded warn/freeze/remove in app logic
-- Supervisor can view policies in Flutter + edit via admin web
+- **InfractionPolicy** admin-configurable — no hard-coded thresholds in app logic
+- Supervisor views policies in Flutter + edits via admin web
 
 ---
 
 ## Notifications & deadline reminders
 
-- Near-midnight **reminders** for students without today’s report (configurable timezone/close/reminder minutes; default Africa/Algiers 23:59)
+- Near-midnight **reminders** for students without today’s report (default Africa/Algiers 23:59)
 - Final reminder ~15 minutes before close
-- Staff alerts: report submitted · excuse submitted · absence recorded
-- In-app notification inbox; optional FCM when `FCM_SERVER_KEY` set
-- Flutter local notification schedule + poll on resume
+- **Teacher** alerts: daily report submitted · excuse · absence · weekly auto-gen
+- **Supervisor** alerts: teacher account approval · join requests · group-creation approval — **not** student report content
+- In-app inbox; optional FCM when `FCM_SERVER_KEY` set
 
 ---
 
 ## Dashboards & UX
 
-- **Student home:** primary CTA «أرسل تقرير اليوم» / submitted state; notes empty states
-- **Teacher home:** لم يرسلوا اليوم / تقصير / مجلس اليوم; group cards with chips/seat bars
-- **Teacher:** students list → student file; attendance tab; notifications tab
-- **Supervisor Flutter:** home metrics + pending account-activation / joins CTAs; طلبات tab = account approvals + join requests; groups; notifications (policies via web / home note)
-- **Supervisor admin (Next):** تفعيل الحسابات tab + pending joins, chips, seat bars, toasts, RTL brand
-- Soft panels, empty states with CTAs, ≥48px tap targets, denser layouts (Phase A/B polish)
+- **Student:** first-run groups catalog (locked shell) → home CTA report; notes; progress + weekly confirm
+- **Teacher:** priorities; join requests; create group; students **grouped by group**; group brief/detailed; weekly reports brief/detailed; attendance weekly copy
+- **Supervisor Flutter:** metrics (no report counts); directory; group approve; joins + teacher account approvals; **no** daily/weekly report screens
+- **Supervisor admin (Next):** تفعيل معلمين · joins · groups (approve) · directory · policies — **no** «تقارير اليوم» / weekly tabs
 
 ---
 
 ## Bottom navigation
 
-- Student: الرئيسية / مجموعتي / تقرير / تقدّمي  
-- Teacher: الرئيسية / طلبة / حضور / إشعارات  
-- Supervisor: الرئيسية / طلبات (تفعيل + انضمام) / مجموعات / إشعارات  
+- Student: الرئيسية / مجموعتي / تقرير / تقدّمي (catalog-only shell until membership)
+- Teacher: الرئيسية / طلبة / حضور / إشعارات
+- Supervisor: الرئيسية / طلبات / مجموعات / إشعارات
 
 ---
 
 ## Production / rebuild guidance
 
-- Portable production curriculum: `docs/ertaki-portable-production-guide.md` (architecture, locked rules, 25 harden levels, checklists)
-- Workflow maintenance rule: keep this file updated when capabilities ship
+- Portable production curriculum: `docs/ertaki-portable-production-guide.md`
+- Workflow maintenance: keep this file + store copy updated when capabilities ship
+- Standing rule: product slices → update workflow · rebuild APK · GitHub Release · push with saved PAT
 
 ---
 

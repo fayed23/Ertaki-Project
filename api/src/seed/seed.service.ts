@@ -111,6 +111,8 @@ export class SeedService implements OnModuleInit {
         currentStudentCount: 2,
         weeklySessionDay: 'السبت',
         weeklySessionTime: '20:00',
+        sessionStartTime: '20:00',
+        sessionEndTime: '21:00',
         status: GroupStatus.OPEN,
         whatsappUrl: 'https://chat.whatsapp.com/example-ertaki',
         description: 'مجموعة حفظ ومراجعة للمبتدئين',

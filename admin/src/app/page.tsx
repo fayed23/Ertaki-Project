@@ -24,29 +24,8 @@ type Dashboard = {
   pendingAccounts: number;
   activeStudents: number;
   openInfractions: number;
-  reportsToday: number;
-  todayReports?: DailyReportRow[];
 };
 
-type DailyReportRow = {
-  id: string;
-  reportDate: string;
-  studentId: string;
-  studentName?: string | null;
-  groupName?: string | null;
-  memorizedQuota: boolean;
-  memorizationFrom?: string | null;
-  memorizationTo?: string | null;
-  reviewPortion?: string | null;
-  reviewFrom?: string | null;
-  reviewTo?: string | null;
-  completedFiftyRepetitions: boolean;
-  repeatedInOneSitting: boolean;
-  readTafsir: boolean;
-  submittedAt?: string;
-  student?: User;
-  group?: { id: string; name: string } | null;
-};
 
 type JoinRequest = {
   id: string;
@@ -86,7 +65,19 @@ type Group = {
   status: string;
   weeklySessionDay: string;
   weeklySessionTime: string;
+  sessionStartTime?: string | null;
+  sessionEndTime?: string | null;
+  teacherName?: string | null;
+  gender?: string;
+  description?: string | null;
   teacher?: User;
+};
+
+
+type Directory = {
+  students: User[];
+  teachers: User[];
+  groups: Group[];
 };
 
 async function api<T>(
@@ -250,6 +241,11 @@ const STATUS_AR: Record<string, string> = {
   teacher: "معلم",
 };
 
+function groupStatusLabel(status: string) {
+  if (status === "pending_approval") return "بانتظار الموافقة";
+  return STATUS_AR[status] || status;
+}
+
 export default function AdminHome() {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -261,14 +257,13 @@ export default function AdminHome() {
   const [accounts, setAccounts] = useState<PendingAccount[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [reports, setReports] = useState<DailyReportRow[]>([]);
-  const [selectedReport, setSelectedReport] = useState<DailyReportRow | null>(null);
+  const [directory, setDirectory] = useState<Directory | null>(null);
   const [deadline, setDeadline] = useState<DeadlineConfig | null>(null);
   const [closeMinutes, setCloseMinutes] = useState(23 * 60 + 55);
   const [demoMemStart, setDemoMemStart] = useState(20 * 60);
   const [demoMemEnd, setDemoMemEnd] = useState(21 * 60);
   const [tab, setTab] = useState<
-    "dash" | "accounts" | "joins" | "reports" | "groups" | "policies"
+    "dash" | "accounts" | "joins" | "groups" | "directory" | "policies"
   >("dash");
 
   const authed = useMemo(() => !!token && !!user, [token, user]);
@@ -295,22 +290,21 @@ export default function AdminHome() {
 
   async function refresh() {
     if (!token) return;
-    const today = new Date().toISOString().slice(0, 10);
-    const [d, a, j, p, g, r, dl] = await Promise.all([
+    const [d, a, j, p, g, dl, dir] = await Promise.all([
       api<Dashboard>("/dashboards/supervisor", token),
       api<PendingAccount[]>("/account-approvals", token),
       api<JoinRequest[]>("/join-requests", token),
       api<Policy[]>("/infraction-policies", token),
       api<Group[]>("/groups", token),
-      api<DailyReportRow[]>(`/daily-reports?reportDate=${today}`, token),
       api<DeadlineConfig[] | DeadlineConfig>("/report-deadline-config", token),
+      api<Directory>("/directory", token),
     ]);
     setDashboard(d);
     setAccounts(a);
     setJoins(j);
     setPolicies(p);
     setGroups(g);
-    setReports(r);
+    setDirectory(dir);
     const row = Array.isArray(dl) ? dl[0] : dl;
     if (row) {
       setDeadline(row);
@@ -467,9 +461,8 @@ export default function AdminHome() {
   const pendingAccounts = accounts.filter((a) => a.status === "pending_approval");
   const metrics = dashboard
     ? [
-        ["تفعيل حسابات", dashboard.pendingAccounts ?? pendingAccounts.length],
+        ["تفعيل معلمين", dashboard.pendingAccounts ?? pendingAccounts.length],
         ["طلبات انضمام", dashboard.pendingJoins],
-        ["تقارير اليوم", dashboard.reportsToday],
         ["تقصير مفتوح", dashboard.openInfractions],
         ["نشطون", dashboard.activeStudents],
         ["الطلبة", dashboard.students],
@@ -574,10 +567,10 @@ export default function AdminHome() {
           {(
             [
               ["dash", "لوحة المؤشرات"],
-              ["accounts", `تفعيل الحسابات${pendingAccounts.length ? ` (${pendingAccounts.length})` : ""}`],
+              ["accounts", `تفعيل المعلمين${pendingAccounts.length ? ` (${pendingAccounts.length})` : ""}`],
               ["joins", `طلبات الانضمام${pendingJoins.length ? ` (${pendingJoins.length})` : ""}`],
-              ["reports", `تقارير اليوم${reports.length ? ` (${reports.length})` : ""}`],
               ["groups", "المجموعات"],
+              ["directory", "الدليل"],
               ["policies", "سياسات التقصير"],
             ] as const
           ).map(([key, label]) => (
@@ -624,7 +617,7 @@ export default function AdminHome() {
                       حسابات بانتظار التفعيل ({pendingAccounts.length})
                     </h2>
                     <p style={{ margin: "0.3rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
-                      وافق أو ارفض تسجيلات الطلبة والمعلمين قبل طلبات الانضمام
+                      وافق أو ارفض تسجيلات المعلمين (الطلبة يُفعَّلون فوراً ويختارون مجموعة)
                     </p>
                   </div>
                   <button type="button" className="btn-primary" style={{ boxShadow: "none" }} onClick={() => setTab("accounts")}>
@@ -649,7 +642,7 @@ export default function AdminHome() {
                       طلبات انضمام بانتظارك ({pendingJoins.length})
                     </h2>
                     <p style={{ margin: "0.3rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
-                      راجعها أولاً قبل بقية المؤشرات
+                      المعلم أو المشرف يقبل — قبول واحد يُنهي الطلب للطرفين
                     </p>
                   </div>
                   <button type="button" className="btn-primary" style={{ boxShadow: "none" }} onClick={() => setTab("joins")}>
@@ -695,23 +688,6 @@ export default function AdminHome() {
               ))}
             </div>
 
-            {(dashboard.reportsToday > 0 || reports.length > 0) && (
-              <div className="panel" style={{ padding: "1rem 1.15rem", marginTop: "1rem" }}>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <h2 style={{ margin: 0, fontSize: "1.15rem" }}>
-                      تقارير اليوم ({dashboard.reportsToday || reports.length})
-                    </h2>
-                    <p style={{ margin: "0.3rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
-                      افتح التفاصيل الكاملة باسم الطالب وكل الحقول
-                    </p>
-                  </div>
-                  <button type="button" className="btn-primary" style={{ boxShadow: "none" }} onClick={() => setTab("reports")}>
-                    عرض التقارير
-                  </button>
-                </div>
-              </div>
-            )}
           </section>
         )}
 
@@ -719,7 +695,7 @@ export default function AdminHome() {
           <section className="anim-rise-delay-2">
             <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.25rem" }}>تفعيل الحسابات</h2>
             <p style={{ margin: "0 0 0.85rem", color: "var(--muted)" }}>
-              موافقة المشرف على تسجيل طالب/معلم قبل الدخول — منفصل عن طلبات الانضمام للمجموعات
+              تفعيل حسابات المعلمين فقط — الطلبة يُفعَّلون فوراً ويختارون مجموعة (منفصل عن طلبات الانضمام)
             </p>
             <div className="panel">
               {accounts.length === 0 && (
@@ -819,213 +795,22 @@ export default function AdminHome() {
           </section>
         )}
 
-        {tab === "reports" && (
-          <section className="anim-rise-delay-2">
-            <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.25rem" }}>تقارير اليوم</h2>
-            <p style={{ margin: "0 0 0.85rem", color: "var(--muted)" }}>
-              قائمة بأسماء الطلبة — اضغط لعرض التقرير الكامل (حفظ، مراجعة، تكرار، تفسير)
-            </p>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: selectedReport ? "minmax(260px, 1fr) minmax(280px, 1.1fr)" : "1fr",
-                gap: "1rem",
-              }}
-            >
-              <div className="panel">
-                {reports.length === 0 && (
-                  <p className="row-item" style={{ color: "var(--muted)", margin: 0 }}>
-                    لا تقارير لهذا اليوم بعد.
-                  </p>
-                )}
-                {reports.map((r) => {
-                  const name =
-                    r.studentName ||
-                    (r.student ? `${r.student.firstName} ${r.student.lastName}` : "طالب");
-                  const active = selectedReport?.id === r.id;
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      className="row-item"
-                      onClick={async () => {
-                        if (!token) return;
-                        try {
-                          const full = await api<DailyReportRow>(`/daily-reports/${r.id}`, token);
-                          setSelectedReport(full);
-                        } catch (e) {
-                          setSelectedReport(r);
-                          setError(e instanceof Error ? e.message : String(e));
-                        }
-                      }}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        textAlign: "right",
-                        background: active ? "rgba(23,107,77,0.08)" : "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        font: "inherit",
-                        color: "inherit",
-                      }}
-                    >
-                      <p style={{ margin: 0, fontWeight: 700 }}>{name}</p>
-                      <p style={{ margin: "0.25rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
-                        {r.groupName || r.group?.name || "—"} · {r.reportDate}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-              {selectedReport && (
-                <div className="panel" style={{ padding: "1.15rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "flex-start" }}>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: "1.2rem" }}>
-                        {selectedReport.studentName ||
-                          (selectedReport.student
-                            ? `${selectedReport.student.firstName} ${selectedReport.student.lastName}`
-                            : "طالب")}
-                      </h3>
-                      <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
-                        {selectedReport.reportDate}
-                        {selectedReport.groupName || selectedReport.group?.name
-                          ? ` · ${selectedReport.groupName || selectedReport.group?.name}`
-                          : ""}
-                      </p>
-                    </div>
-                    <button type="button" className="btn-ghost" onClick={() => setSelectedReport(null)}>
-                      إغلاق
-                    </button>
-                  </div>
-                  <div style={{ marginTop: "1rem", display: "grid", gap: "0.55rem" }}>
-                    {(
-                      [
-                        ["حفظ القسط", selectedReport.memorizedQuota ? "نعم" : "لا"],
-                        ["من", selectedReport.memorizationFrom || "—"],
-                        ["إلى", selectedReport.memorizationTo || "—"],
-                        ["ورد المراجعة", selectedReport.reviewPortion || "—"],
-                        ["مراجعة من", selectedReport.reviewFrom || "—"],
-                        ["مراجعة إلى", selectedReport.reviewTo || "—"],
-                        ["50 تكرار", selectedReport.completedFiftyRepetitions ? "نعم" : "لا"],
-                        ["مجلس واحد", selectedReport.repeatedInOneSitting ? "نعم" : "لا"],
-                        ["تفسير", selectedReport.readTafsir ? "نعم" : "لا"],
-                      ] as const
-                    ).map(([label, value]) => (
-                      <div
-                        key={label}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: "1rem",
-                          borderBottom: "1px solid var(--line)",
-                          paddingBottom: "0.45rem",
-                        }}
-                      >
-                        <span style={{ color: "var(--muted)" }}>{label}</span>
-                        <strong>{value}</strong>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-          {tab === "joins" && (
-          <section className="anim-rise-delay-2">
-            <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.25rem" }}>طلبات الانضمام</h2>
-            <p style={{ margin: "0 0 0.85rem", color: "var(--muted)" }}>
-              قبول أو رفض طلبات الطلبة للمجموعات — منفصل عن تفعيل الحساب عند التسجيل
-            </p>
-            <div className="panel">
-              {joins.length === 0 && (
-                <p className="row-item" style={{ color: "var(--muted)", margin: 0 }}>
-                  لا توجد طلبات حالياً — عندما يرسل طالب طلباً سيظهر هنا.
-                </p>
-              )}
-              {[...joins]
-                .sort((a, b) => Number(a.status !== "pending") - Number(b.status !== "pending"))
-                .map((j) => (
-                <div
-                  key={j.id}
-                  className="row-item"
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    justifyContent: "space-between",
-                    gap: "0.85rem",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 700 }}>
-                      {j.student.firstName} {j.student.lastName}
-                      <span style={{ color: "var(--muted)", fontWeight: 500 }}> ← </span>
-                      {j.group.name}
-                    </p>
-                    <div style={{ marginTop: 6 }}>
-                      {chip(
-                        STATUS_AR[j.status] || j.status,
-                        j.status === "pending" ? "warn" : j.status === "accepted" ? "ok" : "neutral",
-                      )}
-                    </div>
-                  </div>
-                  {j.status === "pending" && (
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        type="button"
-                        className="btn-primary"
-                        style={{ padding: "0.55rem 1rem", boxShadow: "none", minHeight: 44 }}
-                        onClick={async () => {
-                          await api(`/join-requests/${j.id}`, token, {
-                            method: "PATCH",
-                            body: JSON.stringify({ accept: true }),
-                          });
-                          await refresh();
-                          toast("تم قبول الطلب");
-                        }}
-                      >
-                        قبول
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        style={{ minHeight: 44 }}
-                        onClick={async () => {
-                          await api(`/join-requests/${j.id}`, token, {
-                            method: "PATCH",
-                            body: JSON.stringify({ accept: false }),
-                          });
-                          await refresh();
-                          toast("تم رفض الطلب");
-                        }}
-                      >
-                        رفض
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
         {tab === "groups" && (
           <section className="anim-rise-delay-2">
             <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.25rem" }}>المجموعات</h2>
             <p style={{ margin: "0 0 0.85rem", color: "var(--muted)" }}>
-              مواعيد المجالس وروابط واتساب الخارجية
+              مواعيد المجالس · موافقة طلبات إنشاء المعلم · روابط واتساب
             </p>
             <div className="panel">
               {groups.length === 0 && (
                 <p className="row-item" style={{ color: "var(--muted)", margin: 0 }}>
-                  لا مجموعات بعد — أنشئ مجموعة وعيّن معلماً.
+                  لا مجموعات بعد.
                 </p>
               )}
               {groups.map((g) => {
                 const ratio = g.seatCount ? Math.min(1, g.currentStudentCount / g.seatCount) : 0;
+                const start = g.sessionStartTime || g.weeklySessionTime;
+                const timeLabel = g.sessionEndTime ? `${start} → ${g.sessionEndTime}` : start;
                 return (
                 <div
                   key={g.id}
@@ -1052,13 +837,23 @@ export default function AdminHome() {
                         {g.name}
                       </h3>
                       {chip(
-                        STATUS_AR[g.status] || g.status,
-                        g.status === "open" ? "ok" : g.status === "full" ? "warn" : "neutral",
+                        groupStatusLabel(g.status),
+                        g.status === "open"
+                          ? "ok"
+                          : g.status === "pending_approval"
+                            ? "warn"
+                            : g.status === "full"
+                              ? "warn"
+                              : "neutral",
                       )}
                     </div>
                     <p style={{ margin: "0.4rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
-                      {g.weeklySessionDay} · {g.weeklySessionTime}
-                      {g.teacher ? ` · المعلم: ${g.teacher.firstName} ${g.teacher.lastName}` : ""}
+                      {g.weeklySessionDay} · {timeLabel}
+                      {g.teacher
+                        ? ` · المعلم: ${g.teacher.firstName} ${g.teacher.lastName}`
+                        : g.teacherName
+                          ? ` · ${g.teacherName}`
+                          : ""}
                     </p>
                     <div style={{ marginTop: 8, maxWidth: 280 }}>
                       <div style={{ height: 8, borderRadius: 6, background: "var(--mist-deep, #d3e2da)", overflow: "hidden" }}>
@@ -1068,6 +863,45 @@ export default function AdminHome() {
                         {g.currentStudentCount}/{g.seatCount} مقعد
                       </p>
                     </div>
+                    {g.status === "pending_approval" && (
+                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          style={{ boxShadow: "none" }}
+                          onClick={async () => {
+                            try {
+                              await api(`/groups/${g.id}/approval`, token, {
+                                method: "PATCH",
+                                body: JSON.stringify({ approve: true }),
+                              });
+                              await refresh();
+                            } catch (e) {
+                              setError(String((e as Error).message || e));
+                            }
+                          }}
+                        >
+                          موافقة
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          onClick={async () => {
+                            try {
+                              await api(`/groups/${g.id}/approval`, token, {
+                                method: "PATCH",
+                                body: JSON.stringify({ approve: false }),
+                              });
+                              await refresh();
+                            } catch (e) {
+                              setError(String((e as Error).message || e));
+                            }
+                          }}
+                        >
+                          رفض
+                        </button>
+                      </div>
+                    )}
                   </div>
                   {g.whatsappUrl && (
                     <a
@@ -1083,6 +917,45 @@ export default function AdminHome() {
                 </div>
               );})}
             </div>
+          </section>
+        )}
+
+        {tab === "directory" && (
+          <section className="anim-rise-delay-2">
+            <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.25rem" }}>الدليل الشامل</h2>
+            <p style={{ margin: "0 0 0.85rem", color: "var(--muted)" }}>
+              كل المعلمين والطلبة والمجموعات
+            </p>
+            {!directory && <p style={{ color: "var(--muted)" }}>جاري التحميل…</p>}
+            {directory && (
+              <div style={{ display: "grid", gap: "1rem" }}>
+                {(
+                  [
+                    ["المعلمون", directory.teachers],
+                    ["الطلبة", directory.students],
+                  ] as const
+                ).map(([title, rows]) => (
+                  <div key={title} className="panel">
+                    <h3 style={{ margin: "0.75rem 1rem", fontSize: "1.1rem" }}>{title} ({rows.length})</h3>
+                    {rows.map((u) => (
+                      <div key={u.id} className="row-item">
+                        {u.firstName} {u.lastName} · {u.phone} · {STATUS_AR[u.status] || u.status}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                <div className="panel">
+                  <h3 style={{ margin: "0.75rem 1rem", fontSize: "1.1rem" }}>
+                    المجموعات ({directory.groups.length})
+                  </h3>
+                  {directory.groups.map((g) => (
+                    <div key={g.id} className="row-item">
+                      {g.name} · {g.teacherName || ""} · {groupStatusLabel(g.status)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
         )}
 

@@ -48,6 +48,32 @@ export class AuthService {
     if (!input.password || input.password.length < 6) {
       throw new BadRequestException('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
     }
+
+    if (role === UserRole.STUDENT) {
+      const user = this.users.create({
+        firstName: input.firstName,
+        lastName: input.lastName,
+        phone: input.phone,
+        email: input.email ?? null,
+        passwordHash: await bcrypt.hash(input.password, 10),
+        role,
+        status: UserStatus.NEW,
+        isActive: true,
+        accountReviewNote: null,
+        gender: input.gender ?? null,
+        birthDate: input.birthDate ?? null,
+        city: input.city ?? null,
+        currentMemorization: input.currentMemorization ?? null,
+        memorizationLevel: input.memorizationLevel ?? null,
+        previousErtakiParticipant: !!input.previousErtakiParticipant,
+      });
+      const saved = await this.users.save(user);
+      return this.tokenResponse(saved, {
+        needsGroup: true,
+        message: 'تم إنشاء الحساب — اختر مجموعة للانضمام',
+      });
+    }
+
     const user = this.users.create({
       firstName: input.firstName,
       lastName: input.lastName,
@@ -70,13 +96,12 @@ export class AuthService {
     const supervisors = await this.users.find({
       where: [{ role: UserRole.SUPERVISOR }, { role: UserRole.ADMIN }],
     });
-    const roleAr = role === UserRole.TEACHER ? 'معلم' : 'طالب';
     for (const s of supervisors) {
       await this.push.notify(
         s.id,
         'account_pending_approval',
-        'طلب تفعيل حساب جديد',
-        `${saved.firstName} ${saved.lastName} (${roleAr}) بانتظار موافقتك`,
+        'طلب تفعيل حساب معلم',
+        `${saved.firstName} ${saved.lastName} (معلم) بانتظار موافقتك`,
         { userId: saved.id, role },
       );
     }
@@ -84,8 +109,7 @@ export class AuthService {
     const { passwordHash: _, ...safe } = saved;
     return {
       pendingApproval: true,
-      message:
-        'تم إنشاء الحساب وبانتظار موافقة المشرف قبل تفعيل الدخول',
+      message: 'تم إنشاء حساب المعلم وبانتظار موافقة المشرف',
       user: safe,
     };
   }
@@ -94,6 +118,14 @@ export class AuthService {
     const user = await this.users.findOne({ where: { phone } });
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       throw new UnauthorizedException('بيانات الدخول غير صحيحة');
+    }
+    if (
+      user.role === UserRole.STUDENT &&
+      user.status === UserStatus.PENDING_APPROVAL
+    ) {
+      user.status = UserStatus.NEW;
+      user.isActive = true;
+      await this.users.save(user);
     }
     if (user.status === UserStatus.PENDING_APPROVAL) {
       throw new UnauthorizedException(
@@ -112,9 +144,12 @@ export class AuthService {
     return this.tokenResponse(user);
   }
 
-  private tokenResponse(user: User) {
+  private tokenResponse(
+    user: User,
+    extra?: Record<string, unknown>,
+  ) {
     const accessToken = this.jwt.sign({ sub: user.id, role: user.role });
     const { passwordHash: _, ...safe } = user;
-    return { accessToken, user: safe };
+    return { accessToken, user: safe, ...(extra ?? {}) };
   }
 }

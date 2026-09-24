@@ -147,7 +147,7 @@ class _GatePageState extends State<GatePage> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'بعد التسجيل يبقى الحساب بانتظار موافقة المشرف قبل الدخول',
+                          'الطالب يُفعَّل فوراً ويختار مجموعة · المعلم ينتظر موافقة المشرف',
                           style: ui(size: 11, color: Brand.muted),
                           textAlign: TextAlign.center,
                         ),

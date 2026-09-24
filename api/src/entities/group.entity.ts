@@ -38,6 +38,12 @@ export class Group {
   @Column()
   weeklySessionTime: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  sessionStartTime: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  sessionEndTime: string | null;
+
   @Column({ type: 'varchar', default: GroupStatus.OPEN })
   status: GroupStatus;
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/gate.dart';
+import 'package:ertaki_mobile/groups_catalog.dart';
 import 'package:ertaki_mobile/notify.dart';
 import 'package:ertaki_mobile/student_screens.dart';
 import 'package:ertaki_mobile/supervisor_screens.dart';
@@ -20,6 +21,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   late final ApiClient api = ApiClient(widget.token);
   Map<String, dynamic>? me;
+  bool? studentHasGroup;
   int tab = 0;
 
   @override
@@ -45,10 +47,18 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   Future<void> _load() async {
     try {
       final user = await api.get('/auth/me') as Map<String, dynamic>;
-      setState(() => me = user);
+      bool? hasGroup;
+      if (user['role'] == 'student') {
+        final h = await api.get('/memberships/has-group') as Map<String, dynamic>;
+        hasGroup = h['hasGroup'] == true;
+      }
+      setState(() {
+        me = user;
+        studentHasGroup = hasGroup;
+      });
       await NotifyHub.instance.registerDevice(api);
       await NotifyHub.instance.pollAndAlert(api);
-      if (user['role'] == 'student') {
+      if (user['role'] == 'student' && hasGroup == true) {
         await _syncStudentReminder();
       }
     } catch (e) {
@@ -92,7 +102,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (me == null) {
+    if (me == null || (me!['role'] == 'student' && studentHasGroup == null)) {
       return const Scaffold(
         body: Atmosphere(child: Center(child: CircularProgressIndicator())),
       );
@@ -100,6 +110,33 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final role = me!['role'] as String;
     final isSupervisor = role == 'supervisor' || role == 'admin';
     final isTeacher = role == 'teacher';
+    final needsGroup = role == 'student' && studentHasGroup != true;
+
+    if (needsGroup) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('ارتق', style: brandStyle(size: 26)),
+          actions: [
+            IconButton(
+              tooltip: 'خروج',
+              onPressed: logout,
+              icon: const Icon(Icons.logout_rounded),
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            ),
+          ],
+        ),
+        body: Atmosphere(
+          child: GroupsCatalogPage(
+            api: api,
+            locked: true,
+            onMembershipUnlocked: () {
+              setState(() => studentHasGroup = true);
+              _syncStudentReminder();
+            },
+          ),
+        ),
+      );
+    }
 
     late final List<Widget> pages;
     late final List<NavigationDestination> destinations;

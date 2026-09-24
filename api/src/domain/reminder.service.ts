@@ -9,12 +9,14 @@ import { User } from '../entities/user.entity';
 import { UserRole, UserStatus } from '../common/enums';
 import { NotificationStub } from '../entities/notification-stub.entity';
 import { PushService } from './push.service';
+import { DomainService } from './domain.service';
 
 @Injectable()
 export class ReminderService implements OnModuleInit {
   private readonly logger = new Logger(ReminderService.name);
   private lastEveningKey = '';
   private lastLateKey = '';
+  private lastWeeklyKey = '';
 
   constructor(
     @InjectRepository(ReportDeadlineConfig)
@@ -28,6 +30,7 @@ export class ReminderService implements OnModuleInit {
     @InjectRepository(NotificationStub)
     private readonly notifications: Repository<NotificationStub>,
     private readonly push: PushService,
+    private readonly domain: DomainService,
   ) {}
 
   async onModuleInit() {
@@ -81,6 +84,22 @@ export class ReminderService implements OnModuleInit {
     if (this.near(minutesNow, lateTarget) && this.lastLateKey !== lateKey) {
       this.lastLateKey = lateKey;
       await this.remindMissingStudents(today, 'deadline_reminder_final', 15);
+    }
+  }
+
+  /** Saturday 00:15 Africa/Algiers — generate reports for the week that just ended. */
+  @Cron('15 0 * * 6', { timeZone: 'Africa/Algiers' })
+  async tickWeeklyReports() {
+    const key = new Date().toISOString().slice(0, 10);
+    if (this.lastWeeklyKey === key) return;
+    this.lastWeeklyKey = key;
+    try {
+      const result = await this.domain.autoGenerateWeeklyReports('Africa/Algiers');
+      this.logger.log(
+        `Auto weekly reports: created=${result.created} week=${result.weekStart}..${result.weekEnd}`,
+      );
+    } catch (e) {
+      this.logger.error(`Auto weekly reports failed: ${e}`);
     }
   }
 

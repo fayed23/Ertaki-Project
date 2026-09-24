@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
-import 'package:ertaki_mobile/report_detail.dart';
+import 'package:ertaki_mobile/groups_catalog.dart';
 import 'package:ertaki_mobile/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -49,12 +49,9 @@ class _SupervisorHomeState extends State<SupervisorHome> {
     if (loading) return const Center(child: CircularProgressIndicator());
     final pendingJoins = (data?['pendingJoins'] as num?)?.toInt() ?? 0;
     final pendingAccounts = (data?['pendingAccounts'] as num?)?.toInt() ?? 0;
-    final reportsToday = (data?['reportsToday'] as num?)?.toInt() ?? 0;
-    final todayReports = (data?['todayReports'] as List<dynamic>?) ?? [];
     final metrics = [
-      ('تفعيل حسابات', pendingAccounts),
+      ('تفعيل معلمين', pendingAccounts),
       ('طلبات انضمام', pendingJoins),
-      ('تقارير اليوم', reportsToday),
       ('تقصير مفتوح', (data?['openInfractions'] as num?)?.toInt() ?? 0),
       ('نشطون', (data?['activeStudents'] as num?)?.toInt() ?? 0),
       ('الطلبة', (data?['students'] as num?)?.toInt() ?? 0),
@@ -79,7 +76,7 @@ class _SupervisorHomeState extends State<SupervisorHome> {
                     children: [
                       Expanded(
                         child: Text(
-                          'حسابات بانتظار التفعيل ($pendingAccounts)',
+                          'معلمون بانتظار التفعيل ($pendingAccounts)',
                           style: ui(size: 17, weight: FontWeight.w700),
                         ),
                       ),
@@ -88,7 +85,7 @@ class _SupervisorHomeState extends State<SupervisorHome> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'وافق أو ارفض تسجيلات الطلبة والمعلمين قبل طلبات الانضمام',
+                    'الطلبة يُفعَّلون فوراً — راجع تسجيلات المعلمين فقط',
                     style: ui(size: 13, color: Brand.muted),
                   ),
                   const SizedBox(height: 12),
@@ -118,7 +115,7 @@ class _SupervisorHomeState extends State<SupervisorHome> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'راجعها أولاً قبل بقية المؤشرات',
+                    'المعلم أو المشرف يقبل — قبول واحد يكفي',
                     style: ui(size: 13, color: Brand.muted),
                   ),
                   const SizedBox(height: 12),
@@ -169,12 +166,7 @@ class _SupervisorHomeState extends State<SupervisorHome> {
           SoftPanel(
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => StaffReportsListPage(
-                    api: widget.api,
-                    reportDate: '${data?['today'] ?? todayIso()}',
-                  ),
-                ),
+                MaterialPageRoute(builder: (_) => SupervisorDirectoryPage(api: widget.api)),
               );
             },
             child: Row(
@@ -183,52 +175,15 @@ class _SupervisorHomeState extends State<SupervisorHome> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('تقارير اليوم', style: ui(size: 16, weight: FontWeight.w700)),
-                      Text(
-                        reportsToday == 0
-                            ? 'لا تقارير بعد — افتح القائمة'
-                            : '$reportsToday تقرير — اضغط للعرض بالاسم الكامل',
-                        style: ui(size: 13, color: Brand.muted),
-                      ),
+                      Text('الدليل الشامل', style: ui(size: 16, weight: FontWeight.w700)),
+                      Text('كل المجموعات والطلبة والمعلمين', style: ui(size: 13, color: Brand.muted)),
                     ],
                   ),
-                ),
-                StatusChip(
-                  label: '$reportsToday',
-                  tone: reportsToday > 0 ? ChipTone.ok : ChipTone.neutral,
                 ),
                 const Icon(Icons.chevron_left, color: Brand.muted),
               ],
             ),
           ),
-          if (todayReports.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            const SectionTitle('آخر التقارير'),
-            ...todayReports.take(6).map((raw) {
-              final r = Map<String, dynamic>.from(raw as Map);
-              final name = r['studentName'] as String? ?? 'طالب';
-              return SoftPanel(
-                margin: const EdgeInsets.only(bottom: 6),
-                onTap: () => openDailyReportDetail(
-                  context,
-                  widget.api,
-                  reportId: '${r['id']}',
-                  report: r,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '$name · ${r['groupName'] ?? '—'}',
-                        style: ui(weight: FontWeight.w600),
-                      ),
-                    ),
-                    const Icon(Icons.chevron_left, size: 20, color: Brand.muted),
-                  ],
-                ),
-              );
-            }),
-          ],
           const SizedBox(height: 14),
           SoftPanel(
             child: Column(
@@ -237,7 +192,7 @@ class _SupervisorHomeState extends State<SupervisorHome> {
                 Text('لوحة الويب أيضاً متاحة', style: ui(size: 15, weight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 Text(
-                  'يمكنك إدارة البرنامج من التطبيق أو من لوحة المشرف على المتصفح بنفس الحساب. سياسات التقصير تُعدَّل من الويب.',
+                  'إدارة المجموعات والمستخدمين من التطبيق أو الويب. محتوى التقارير اليومية/الأسبوعية للمعلمين فقط.',
                   style: ui(size: 13, color: Brand.muted),
                 ),
               ],
@@ -466,7 +421,7 @@ class _SupervisorJoinsState extends State<SupervisorJoins> {
           const SizedBox(height: 20),
           Text('طلبات الانضمام', style: ui(size: 22, weight: FontWeight.w700)),
           Text(
-            'قبول أو رفض طلبات الطلبة للمجموعات (منفصل عن تفعيل الحساب)',
+            'قبول أو رفض طلبات الطلبة للمجموعات (المعلم أو المشرف — قبول واحد يكفي)',
             style: ui(size: 13, color: Brand.muted),
           ),
           if (pendingAccounts > 0) ...[
@@ -570,6 +525,18 @@ class _SupervisorGroupsState extends State<SupervisorGroups> {
     }
   }
 
+  Future<void> _reviewGroup(String id, bool approve) async {
+    try {
+      await widget.api.patch('/groups/$id/approval', {'approve': approve});
+      if (mounted) {
+        showToast(context, approve ? 'تمت الموافقة على المجموعة' : 'رُفض إنشاء المجموعة');
+      }
+      await _load();
+    } catch (e) {
+      if (mounted) showToast(context, e.toString(), error: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
@@ -579,13 +546,13 @@ class _SupervisorGroupsState extends State<SupervisorGroups> {
         padding: const EdgeInsets.all(16),
         children: [
           Text('المجموعات', style: ui(size: 22, weight: FontWeight.w700)),
-          Text('مواعيد المجالس وروابط واتساب', style: ui(size: 13, color: Brand.muted)),
+          Text('مواعيد المجالس · موافقة إنشاء المعلم · عرض موجز/تفصيلي', style: ui(size: 13, color: Brand.muted)),
           const SizedBox(height: 12),
           if (groups.isEmpty)
             const EmptyState(
               icon: Icons.groups_outlined,
               title: 'لا مجموعات بعد',
-              subtitle: 'أنشئ مجموعة من لوحة الويب أو عبر الـ API',
+              subtitle: 'المعلمون يرسلون طلبات إنشاء للمجموعات',
             )
           else
             ...groups.map((g) {
@@ -593,38 +560,71 @@ class _SupervisorGroupsState extends State<SupervisorGroups> {
               final seats = (g['seatCount'] as num?)?.toInt() ?? 0;
               final current = (g['currentStudentCount'] as num?)?.toInt() ?? 0;
               final status = '${g['status'] ?? ''}';
-              final statusLabel = switch (status) {
-                'open' => 'مفتوحة',
-                'full' => 'مكتملة',
-                'closed' => 'مغلقة',
-                'paused' => 'متوقفة',
-                _ => status,
-              };
+              final statusLabel = groupStatusAr(status);
+              final start = g['sessionStartTime'] ?? g['weeklySessionTime'];
+              final end = g['sessionEndTime'];
+              final timeLabel = end != null ? '$start → $end' : '$start';
               return SoftPanel(
                 margin: const EdgeInsets.only(bottom: 8),
+                onTap: status == 'pending_approval'
+                    ? null
+                    : () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => GroupDetailPage(
+                              api: widget.api,
+                              groupId: '${g['id']}',
+                              groupName: '${g['name']}',
+                            ),
+                          ),
+                        );
+                      },
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
+                        Icon(genderIcon(g['gender'] as String?), color: Brand.forestMid),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text('${g['name']}', style: ui(size: 16, weight: FontWeight.w700)),
                         ),
                         StatusChip(
                           label: statusLabel,
-                          tone: status == 'open' ? ChipTone.ok : ChipTone.neutral,
+                          tone: status == 'open'
+                              ? ChipTone.ok
+                              : (status == 'pending_approval' ? ChipTone.warn : ChipTone.neutral),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${g['weeklySessionDay']} · ${g['weeklySessionTime']}'
-                      '${teacher != null ? ' · المعلم: ${teacher['firstName']}' : ''}',
+                      '${g['weeklySessionDay']} · $timeLabel'
+                      '${teacher != null ? ' · المعلم: ${teacher['firstName'] ?? g['teacherName']}' : (g['teacherName'] != null ? ' · ${g['teacherName']}' : '')}',
                       style: ui(size: 13, color: Brand.muted),
                     ),
                     const SizedBox(height: 10),
                     SeatBar(current: current, total: seats),
-                    if (g['whatsappUrl'] != null && '${g['whatsappUrl']}'.isNotEmpty) ...[
+                    if (status == 'pending_approval') ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => _reviewGroup('${g['id']}', true),
+                              child: const Text('موافقة'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => _reviewGroup('${g['id']}', false),
+                              child: const Text('رفض'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else if (g['whatsappUrl'] != null && '${g['whatsappUrl']}'.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       OutlinedButton.icon(
                         onPressed: () async {

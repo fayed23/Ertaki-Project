@@ -23,6 +23,7 @@ export enum GroupGender {
 }
 
 export enum GroupStatus {
+  PENDING_APPROVAL = 'pending_approval',
   OPEN = 'open',
   FULL = 'full',
   CLOSED = 'closed',

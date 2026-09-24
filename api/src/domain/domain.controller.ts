@@ -33,33 +33,68 @@ export class DomainController {
     return this.domain.listUsers(user);
   }
 
+  @Get('directory')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  directory(@CurrentUser() user: User) {
+    return this.domain.listDirectory(user);
+  }
+
   @Get('groups')
-  listGroups() {
-    return this.domain.listGroups();
+  listGroups(@CurrentUser() user: User) {
+    return this.domain.listGroups(user);
   }
 
   @Get('groups/:id')
-  getGroup(@Param('id') id: string) {
-    return this.domain.getGroup(id);
+  async getGroup(@Param('id') id: string) {
+    return this.domain.enrichGroup(await this.domain.getGroup(id));
+  }
+
+  @Get('groups/:id/brief')
+  @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  groupBrief(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.domain.getGroupBrief(user, id);
+  }
+
+  @Get('groups/:id/detailed')
+  @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  groupDetailed(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.domain.getGroupDetailed(user, id);
   }
 
   @Post('groups')
-  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
   createGroup(
     @CurrentUser() user: User,
     @Body()
     body: {
       name: string;
-      teacherId: string;
+      teacherId?: string;
       gender: string;
-      seatCount: number;
-      weeklySessionDay: string;
-      weeklySessionTime: string;
+      seatCount?: number;
+      weeklySessionDay?: string;
+      weeklySessionTime?: string;
+      sessionStartTime?: string;
+      sessionEndTime?: string;
       whatsappUrl?: string;
       description?: string;
     },
   ) {
     return this.domain.createGroup(user, body);
+  }
+
+  @Patch('groups/:id/approval')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  reviewGroupCreation(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() body: { approve: boolean; reviewNote?: string },
+  ) {
+    return this.domain.reviewGroupCreation(
+      user,
+      id,
+      body.approve,
+      body.reviewNote,
+    );
   }
 
   @Post('join-requests')
@@ -69,13 +104,12 @@ export class DomainController {
   }
 
   @Get('join-requests')
-  @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
   listJoinRequests(@CurrentUser() user: User) {
     return this.domain.listJoinRequests(user);
   }
 
   @Patch('join-requests/:id')
-  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
   reviewJoin(
     @CurrentUser() user: User,
     @Param('id') id: string,
@@ -103,6 +137,11 @@ export class DomainController {
   @Get('memberships/me')
   myMembership(@CurrentUser() user: User) {
     return this.domain.myMembership(user);
+  }
+
+  @Get('memberships/has-group')
+  hasGroup(@CurrentUser() user: User) {
+    return this.domain.studentHasMembership(user);
   }
 
   @Get('memberships')
@@ -163,15 +202,12 @@ export class DomainController {
   }
 
   @Get('daily-reports/:id')
-  getDaily(
-    @CurrentUser() user: User,
-    @Param('id') id: string,
-  ) {
+  getDaily(@CurrentUser() user: User, @Param('id') id: string) {
     return this.domain.getDailyReport(user, id);
   }
 
   @Post('weekly-reports/generate')
-  @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  @Roles(UserRole.TEACHER)
   generateWeekly(
     @CurrentUser() user: User,
     @Body()
@@ -185,6 +221,12 @@ export class DomainController {
     );
   }
 
+  @Post('weekly-reports/auto-generate')
+  @Roles(UserRole.TEACHER)
+  autoWeekly() {
+    return this.domain.autoGenerateWeeklyReports();
+  }
+
   @Patch('weekly-reports/:id/confirm')
   confirmWeekly(@CurrentUser() user: User, @Param('id') id: string) {
     return this.domain.confirmWeeklyReport(user, id);
@@ -194,8 +236,18 @@ export class DomainController {
   listWeekly(
     @CurrentUser() user: User,
     @Query('studentId') studentId?: string,
+    @Query('mode') mode?: 'brief' | 'detailed',
   ) {
-    return this.domain.listWeeklyReports(user, studentId);
+    return this.domain.listWeeklyReports(user, studentId, mode ?? 'brief');
+  }
+
+  @Get('weekly-reports/:id')
+  getWeekly(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Query('mode') mode?: 'brief' | 'detailed',
+  ) {
+    return this.domain.getWeeklyReport(user, id, mode ?? 'detailed');
   }
 
   @Post('attendance')
