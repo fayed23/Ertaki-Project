@@ -8,9 +8,19 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
-import { UserRole, UserStatus } from '../common/enums';
+import { GroupGender, UserRole, UserStatus } from '../common/enums';
 import { User } from '../entities/user.entity';
 import { PushService } from '../domain/push.service';
+
+function normalizeGender(raw?: string | null): GroupGender | null {
+  if (!raw) return null;
+  const v = raw.trim().toLowerCase();
+  if (['men', 'male', 'm', 'رجال', 'رجل'].includes(v)) return GroupGender.MEN;
+  if (['women', 'female', 'f', 'نساء', 'امرأة', 'اناث', 'إناث'].includes(v)) {
+    return GroupGender.WOMEN;
+  }
+  return null;
+}
 
 @Injectable()
 export class AuthService {
@@ -50,6 +60,10 @@ export class AuthService {
     }
 
     if (role === UserRole.STUDENT) {
+      const gender = normalizeGender(input.gender);
+      if (!gender) {
+        throw new BadRequestException('يجب اختيار الجنس (رجال / نساء)');
+      }
       const user = this.users.create({
         firstName: input.firstName,
         lastName: input.lastName,
@@ -60,7 +74,7 @@ export class AuthService {
         status: UserStatus.NEW,
         isActive: true,
         accountReviewNote: null,
-        gender: input.gender ?? null,
+        gender,
         birthDate: input.birthDate ?? null,
         city: input.city ?? null,
         currentMemorization: input.currentMemorization ?? null,
@@ -84,7 +98,7 @@ export class AuthService {
       status: UserStatus.PENDING_APPROVAL,
       isActive: false,
       accountReviewNote: null,
-      gender: input.gender ?? null,
+      gender: normalizeGender(input.gender),
       birthDate: input.birthDate ?? null,
       city: input.city ?? null,
       currentMemorization: input.currentMemorization ?? null,

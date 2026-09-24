@@ -4,6 +4,7 @@ import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/gate.dart';
 import 'package:ertaki_mobile/groups_catalog.dart';
 import 'package:ertaki_mobile/notify.dart';
+import 'package:ertaki_mobile/notifications_inbox.dart';
 import 'package:ertaki_mobile/student_screens.dart';
 import 'package:ertaki_mobile/supervisor_screens.dart';
 import 'package:ertaki_mobile/teacher_screens.dart';
@@ -143,10 +144,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
     if (isSupervisor) {
       pages = [
-        SupervisorHome(api: api, me: me!, onGoJoins: () => setState(() => tab = 1)),
+        SupervisorHome(
+          api: api,
+          me: me!,
+          onGoJoins: () => setState(() => tab = 1),
+          onOpenNotifications: () => setState(() => tab = 3),
+        ),
         SupervisorJoins(api: api),
         SupervisorGroups(api: api),
-        NotificationsPage(api: api),
+        NotificationsPage(api: api, role: 'supervisor'),
       ];
       destinations = const [
         NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'الرئيسية'),
@@ -156,10 +162,14 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       ];
     } else if (isTeacher) {
       pages = [
-        TeacherHome(api: api, me: me!),
+        TeacherHome(
+          api: api,
+          me: me!,
+          onOpenNotifications: () => setState(() => tab = 3),
+        ),
         TeacherStudents(api: api),
         TeacherAttendance(api: api),
-        NotificationsPage(api: api),
+        NotificationsPage(api: api, role: 'teacher'),
       ];
       destinations = const [
         NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'الرئيسية'),

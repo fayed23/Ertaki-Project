@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import {
+  GroupGender,
   GroupStatus,
   InfractionType,
   JoinRequestStatus,
@@ -369,7 +370,12 @@ export class DomainService {
     const rows = await this.groups.find({ order: { createdAt: 'DESC' } });
     let filtered = rows;
     if (actor?.role === UserRole.STUDENT) {
-      filtered = rows.filter((g) => g.status === GroupStatus.OPEN);
+      const gender = this.normalizeUserGender(actor.gender);
+      filtered = rows.filter((g) => {
+        if (g.status !== GroupStatus.OPEN) return false;
+        if (!gender) return true;
+        return g.gender === gender;
+      });
     } else if (actor?.role === UserRole.TEACHER) {
       filtered = rows.filter(
         (g) =>
@@ -379,6 +385,16 @@ export class DomainService {
       );
     }
     return Promise.all(filtered.map((g) => this.enrichGroup(g)));
+  }
+
+  private normalizeUserGender(raw?: string | null): GroupGender | null {
+    if (!raw) return null;
+    const v = raw.trim().toLowerCase();
+    if (['men', 'male', 'm', 'رجال', 'رجل'].includes(v)) return GroupGender.MEN;
+    if (['women', 'female', 'f', 'نساء', 'امرأة', 'اناث', 'إناث'].includes(v)) {
+      return GroupGender.WOMEN;
+    }
+    return null;
   }
 
   async getGroup(id: string) {
@@ -418,7 +434,13 @@ export class DomainService {
         dailyReportToday,
       });
     }
-    return { group, students, today, mode: 'brief' };
+    return {
+      group,
+      students,
+      today,
+      mode: 'brief',
+      whatsappUrl: group.whatsappUrl ?? null,
+    };
   }
 
   async getGroupDetailed(actor: User, id: string) {
@@ -530,18 +552,26 @@ export class DomainService {
     if (group.status !== GroupStatus.OPEN) {
       throw new BadRequestException('المجموعة غير مفتوحة للانضمام');
     }
-    const alreadyMember = await this.memberships.findOne({
-      where: { userId: actor.id, groupId, leftAt: IsNull() },
+    const studentGender = this.normalizeUserGender(actor.gender);
+    if (studentGender && group.gender !== studentGender) {
+      throw new BadRequestException('هذه المجموعة لا تطابق جنسك');
+    }
+    const anyMembership = await this.memberships.findOne({
+      where: { userId: actor.id, leftAt: IsNull() },
     });
-    if (alreadyMember) throw new BadRequestException('أنت منضم لهذه المجموعة');
-    const pending = await this.joinRequests.findOne({
-      where: {
-        studentId: actor.id,
-        groupId,
-        status: JoinRequestStatus.PENDING,
-      },
+    if (anyMembership) {
+      throw new BadRequestException(
+        'أنت منضم لمجموعة بالفعل — لا يمكن طلب مجموعة أخرى',
+      );
+    }
+    const anyPending = await this.joinRequests.findOne({
+      where: { studentId: actor.id, status: JoinRequestStatus.PENDING },
     });
-    if (pending) throw new BadRequestException('لديك طلب قيد المراجعة لهذه المجموعة');
+    if (anyPending) {
+      throw new BadRequestException(
+        'لديك طلب انضمام قيد المراجعة — ألغِه أولاً أو انتظر الرد',
+      );
+    }
     const req = await this.joinRequests.save(
       this.joinRequests.create({
         student: actor,
@@ -551,12 +581,7 @@ export class DomainService {
         status: JoinRequestStatus.PENDING,
       }),
     );
-    const hasAnyMembership = await this.memberships.findOne({
-      where: { userId: actor.id, leftAt: IsNull() },
-    });
-    if (!hasAnyMembership) {
-      await this.users.update(actor.id, { status: UserStatus.PENDING_GROUP });
-    }
+    await this.users.update(actor.id, { status: UserStatus.PENDING_GROUP });
     const recipients = new Set<string>([group.teacherId]);
     const supervisors = await this.users.find({
       where: [{ role: UserRole.SUPERVISOR }, { role: UserRole.ADMIN }],
@@ -571,6 +596,34 @@ export class DomainService {
         { joinRequestId: req.id, groupId },
       );
     }
+    return req;
+  }
+
+  async cancelJoinRequest(actor: User, id: string) {
+    if (actor.role !== UserRole.STUDENT) {
+      throw new ForbiddenException('الطلبة فقط يلغون طلباتهم');
+    }
+    const req = await this.joinRequests.findOne({ where: { id } });
+    if (!req || req.studentId !== actor.id) {
+      throw new NotFoundException('الطلب غير موجود');
+    }
+    if (req.status !== JoinRequestStatus.PENDING) {
+      throw new BadRequestException('لا يمكن إلغاء طلب غير معلّق');
+    }
+    req.status = JoinRequestStatus.CANCELLED;
+    await this.joinRequests.save(req);
+    const stillPending = await this.joinRequests.findOne({
+      where: { studentId: actor.id, status: JoinRequestStatus.PENDING },
+    });
+    const membership = await this.memberships.findOne({
+      where: { userId: actor.id, leftAt: IsNull() },
+    });
+    if (!membership && !stillPending) {
+      await this.users.update(actor.id, { status: UserStatus.NEW });
+    }
+    await this.auditLog(actor.id, 'join_request.cancel', 'join_request', id, null, {
+      status: req.status,
+    });
     return req;
   }
 

@@ -17,6 +17,7 @@ No edits after submit.
 ## Staff mobile notifications
 - **Teacher** of the student: notify when a daily report is submitted, an absence excuse is submitted, or attendance is recorded as excused / unexcused absence.
 - **Supervisor:** do **not** notify for student daily/weekly report submissions. Other ops notifications (join requests, group-creation approval, account/group management) remain OK.
+- Notification taps **deep-link** to the relevant screen (join review, group approval, report detail for teachers, attendance, account approval, etc.).
 
 Push delivery uses FCM when `FCM_SERVER_KEY` is set; otherwise notifications stay in-app and the Flutter client can surface them locally when open.
 
@@ -27,4 +28,15 @@ Set per student (teacher/supervisor).
 Fully admin-configurable. Ship config + admin UI hooks; do not hardcode warn/freeze/remove thresholds in application logic.
 
 ## Student signup & group gate
-Student accounts activate immediately on register. First-run features stay locked until group membership; student picks groups and requests join; teacher or supervisor may accept (one acceptance clears for the other).
+- Student accounts activate immediately on register.
+- Student **must** select gender (رجال/نساء) at signup.
+- First-run: features locked until group membership; catalog shows **only groups matching student gender**.
+- Student may have **at most one** pending join request or membership at a time (one group focus); can **cancel** a pending request.
+- Teacher or supervisor may accept a join (one acceptance clears for the other).
+
+## Group WhatsApp
+Teacher create-group form includes WhatsApp group URL; shown on group **brief** overview after approval (and on student «مجموعتي»).
+
+## Teacher / supervisor home
+Main home is a **category hub** (icon buttons) that opens dedicated views — not dense stacked lists.
+Teacher students list: students appear **only under their group sections** (no flat all-students list).

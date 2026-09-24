@@ -81,7 +81,7 @@ export class SeedService implements OnModuleInit {
         passwordHash,
         role: UserRole.STUDENT,
         status: UserStatus.ACTIVE,
-        gender: 'male',
+        gender: 'men',
         city: 'وهران',
         currentMemorization: 'الجزء 1',
         memorizationLevel: 'متوسط',
@@ -96,7 +96,7 @@ export class SeedService implements OnModuleInit {
         passwordHash,
         role: UserRole.STUDENT,
         status: UserStatus.ACTIVE,
-        gender: 'male',
+        gender: 'men',
         city: 'وهران',
       }),
     );

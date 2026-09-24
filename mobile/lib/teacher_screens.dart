@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/groups_catalog.dart';
+import 'package:ertaki_mobile/hub_menu.dart';
 import 'package:ertaki_mobile/report_detail.dart';
 import 'package:ertaki_mobile/widgets.dart';
 
 class TeacherHome extends StatefulWidget {
-  const TeacherHome({super.key, required this.api, required this.me});
+  const TeacherHome({
+    super.key,
+    required this.api,
+    required this.me,
+    this.onOpenNotifications,
+  });
   final ApiClient api;
   final Map<String, dynamic> me;
+  final VoidCallback? onOpenNotifications;
 
   @override
   State<TeacherHome> createState() => _TeacherHomeState();
@@ -37,249 +44,249 @@ class _TeacherHomeState extends State<TeacherHome> {
     }
   }
 
+  void _open(Widget page) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
+
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
     final groups = (data?['groups'] as List<dynamic>?) ?? [];
     int missing = 0;
     int infra = 0;
-    final todayReports = <Map<String, dynamic>>[];
     for (final g in groups) {
       missing += (g['missingToday'] as num?)?.toInt() ?? 0;
       infra += (g['openInfractions'] as num?)?.toInt() ?? 0;
-      final tr = (g['todayReports'] as List<dynamic>?) ?? [];
-      for (final r in tr) {
-        todayReports.add(Map<String, dynamic>.from(r as Map));
-      }
     }
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text('مرحباً ${widget.me['firstName']}', style: ui(size: 22, weight: FontWeight.w700)),
-          Text('لوحة المعلم · ${data?['today']}', style: ui(size: 13, color: Brand.muted)),
-          const SizedBox(height: 12),
-          SoftPanel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('أولويات اليوم', style: ui(size: 17, weight: FontWeight.w700)),
-                const SizedBox(height: 12),
-                _priorityRow(Icons.mark_email_unread_outlined, 'لم يرسلوا اليوم', '$missing', ChipTone.warn),
-                const SizedBox(height: 8),
-                _priorityRow(Icons.warning_amber_outlined, 'تقصير مفتوح', '$infra', ChipTone.danger),
-                const SizedBox(height: 8),
-                _priorityRow(Icons.event_outlined, 'مجلس اليوم', groups.isEmpty ? '—' : '${(groups.first['group'] as Map)['weeklySessionDay']} ${(groups.first['group'] as Map)['weeklySessionTime']}', ChipTone.neutral),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          SoftPanel(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => TeacherJoinsPage(api: widget.api)),
-              );
-            },
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('طلبات الانضمام', style: ui(size: 16, weight: FontWeight.w700)),
-                      Text('قبول أو رفض طلبات مجموعاتك', style: ui(size: 13, color: Brand.muted)),
-                    ],
-                  ),
+      child: RoleHubHome(
+        title: 'مرحباً ${widget.me['firstName']}',
+        subtitle: 'لوحة المعلم · ${data?['today'] ?? ''}',
+        header: SoftPanel(
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  missing > 0 ? '$missing بلا تقرير اليوم' : 'تقارير اليوم مكتملة',
+                  style: ui(weight: FontWeight.w700),
                 ),
-                const Icon(Icons.chevron_left, color: Brand.muted),
-              ],
-            ),
+              ),
+              StatusChip(
+                label: infra > 0 ? '$infra تقصير' : 'لا تقصير',
+                tone: infra > 0 ? ChipTone.danger : ChipTone.ok,
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          SoftPanel(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => WeeklyReportsPage(api: widget.api)),
-              );
-            },
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('التقارير الأسبوعية', style: ui(size: 16, weight: FontWeight.w700)),
-                      Text('موجز وتفصيلي — تُولَّد تلقائياً', style: ui(size: 13, color: Brand.muted)),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_left, color: Brand.muted),
-              ],
-            ),
+        ),
+        categories: [
+          HubCategory(
+            icon: Icons.groups_outlined,
+            label: 'مجموعاتي',
+            subtitle: 'موجز وتفصيلي',
+            badge: groups.isEmpty ? null : '${groups.length}',
+            onTap: () => _open(TeacherGroupsPage(api: widget.api)),
           ),
-          const SizedBox(height: 8),
-          SoftPanel(
+          HubCategory(
+            icon: Icons.school_outlined,
+            label: 'الطلبة',
+            subtitle: 'حسب المجموعة فقط',
+            onTap: () => _open(TeacherStudents(api: widget.api)),
+          ),
+          HubCategory(
+            icon: Icons.how_to_reg_outlined,
+            label: 'طلبات الانضمام',
+            subtitle: 'قبول أو رفض',
+            onTap: () => _open(TeacherJoinsPage(api: widget.api)),
+          ),
+          HubCategory(
+            icon: Icons.event_available_outlined,
+            label: 'الحضور الأسبوعي',
+            subtitle: 'مجلس الأسبوع',
+            onTap: () => _open(TeacherAttendance(api: widget.api)),
+          ),
+          HubCategory(
+            icon: Icons.insights_outlined,
+            label: 'التقارير',
+            subtitle: 'يومي وأسبوعي',
+            onTap: () => _open(TeacherReportsHub(api: widget.api, today: '${data?['today'] ?? todayIso()}')),
+          ),
+          HubCategory(
+            icon: Icons.add_circle_outline,
+            label: 'إنشاء مجموعة',
+            subtitle: 'يحتاج موافقة المشرف',
             onTap: () async {
               final ok = await Navigator.of(context).push<bool>(
                 MaterialPageRoute(builder: (_) => CreateGroupPage(api: widget.api)),
               );
               if (ok == true) await _load();
             },
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('إنشاء مجموعة', style: ui(size: 16, weight: FontWeight.w700)),
-                      Text('طلب موافقة المشرف قبل الفتح', style: ui(size: 13, color: Brand.muted)),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.add_circle_outline, color: Brand.forestMid),
-              ],
-            ),
           ),
-          const SizedBox(height: 12),
-          SoftPanel(
+          HubCategory(
+            icon: Icons.notifications_outlined,
+            label: 'الإشعارات',
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => StaffReportsListPage(
-                    api: widget.api,
-                    reportDate: '${data?['today'] ?? todayIso()}',
-                  ),
-                ),
-              );
+              if (widget.onOpenNotifications != null) {
+                widget.onOpenNotifications!();
+              } else {
+                // fallback: switch handled by shell
+              }
             },
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('تقارير اليوم', style: ui(size: 16, weight: FontWeight.w700)),
-                      Text(
-                        todayReports.isEmpty
-                            ? 'لا تقارير بعد — اضغط لفتح القائمة'
-                            : '${todayReports.length} تقرير — اضغط للعرض الكامل',
-                        style: ui(size: 13, color: Brand.muted),
-                      ),
-                    ],
-                  ),
-                ),
-                StatusChip(
-                  label: '${todayReports.length}',
-                  tone: todayReports.isEmpty ? ChipTone.neutral : ChipTone.ok,
-                ),
-                const Icon(Icons.chevron_left, color: Brand.muted),
-              ],
-            ),
           ),
-          if (todayReports.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            const SectionTitle('آخر ما وصل'),
-            ...todayReports.take(5).map((r) {
-              final name = r['studentName'] as String? ?? 'طالب';
-              return SoftPanel(
-                margin: const EdgeInsets.only(bottom: 6),
-                onTap: () => openDailyReportDetail(
-                  context,
-                  widget.api,
-                  reportId: '${r['id']}',
-                  report: r,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '$name · ${r['reportDate']}',
-                        style: ui(weight: FontWeight.w600),
-                      ),
-                    ),
-                    const Icon(Icons.chevron_left, size: 20, color: Brand.muted),
-                  ],
-                ),
-              );
-            }),
-          ],
-          const SizedBox(height: 12),
-          const SectionTitle('مجموعاتي'),
-          if (groups.isEmpty)
-            const EmptyState(
-              icon: Icons.groups_outlined,
-              title: 'لا مجموعات معيّنة',
-              subtitle: 'أنشئ مجموعة أو اطلب من المشرف تعيينك',
-            )
-          else
-            ...groups.map((g) {
-              final group = g['group'] as Map<String, dynamic>;
-              final missingToday = (g['missingToday'] as num?)?.toInt() ?? 0;
-              final status = '${group['status'] ?? 'open'}';
-              return SoftPanel(
-                margin: const EdgeInsets.only(bottom: 8),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => GroupDetailPage(
-                        api: widget.api,
-                        groupId: '${group['id']}',
-                        groupName: '${group['name']}',
-                      ),
-                    ),
-                  );
-                },
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text('${group['name']}', style: ui(size: 16, weight: FontWeight.w700)),
-                        ),
-                        StatusChip(
-                          label: status == 'pending_approval'
-                              ? 'بانتظار الموافقة'
-                              : (missingToday > 0 ? '$missingToday بلا تقرير' : 'اكتمل اليوم'),
-                          tone: status == 'pending_approval'
-                              ? ChipTone.warn
-                              : (missingToday > 0 ? ChipTone.warn : ChipTone.ok),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'طلبة ${g['studentCount']} · أرسلوا ${g['submittedToday']} · تقصير ${g['openInfractions']}',
-                      style: ui(size: 13, color: Brand.muted),
-                    ),
-                    const SizedBox(height: 8),
-                    SeatBar(
-                      current: (group['currentStudentCount'] as num?)?.toInt() ?? 0,
-                      total: (group['seatCount'] as num?)?.toInt() ?? 0,
-                    ),
-                  ],
-                ),
-              );
-            }),
         ],
       ),
     );
   }
+}
 
-  Widget _priorityRow(IconData icon, String label, String value, ChipTone tone) {
-    return Row(
-      children: [
-        Icon(icon, color: Brand.forestMid, size: 22),
-        const SizedBox(width: 10),
-        Expanded(child: Text(label, style: ui(weight: FontWeight.w600))),
-        StatusChip(label: value, tone: tone),
-      ],
+class TeacherGroupsPage extends StatefulWidget {
+  const TeacherGroupsPage({super.key, required this.api});
+  final ApiClient api;
+
+  @override
+  State<TeacherGroupsPage> createState() => _TeacherGroupsPageState();
+}
+
+class _TeacherGroupsPageState extends State<TeacherGroupsPage> {
+  List<dynamic> groups = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final d = await widget.api.get('/dashboards/teacher') as Map<String, dynamic>;
+      setState(() {
+        groups = (d['groups'] as List<dynamic>?) ?? [];
+        loading = false;
+      });
+    } catch (e) {
+      setState(() => loading = false);
+      if (mounted) showToast(context, e.toString(), error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('مجموعاتي', style: ui(size: 18, weight: FontWeight.w700))),
+      body: Atmosphere(
+        child: loading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    if (groups.isEmpty)
+                      const EmptyState(icon: Icons.groups_outlined, title: 'لا مجموعات بعد')
+                    else
+                      ...groups.map((g) {
+                        final group = Map<String, dynamic>.from(g['group'] as Map);
+                        return SoftPanel(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => GroupDetailPage(
+                                  api: widget.api,
+                                  groupId: '${group['id']}',
+                                  groupName: '${group['name']}',
+                                ),
+                              ),
+                            );
+                          },
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text('${group['name']}', style: ui(weight: FontWeight.w700)),
+                              ),
+                              StatusChip(
+                                label: '${g['studentCount'] ?? 0} طالب',
+                                tone: ChipTone.neutral,
+                              ),
+                              const Icon(Icons.chevron_left, color: Brand.muted),
+                            ],
+                          ),
+                        );
+                      }),
+                  ],
+                ),
+              ),
+      ),
     );
   }
 }
 
+class TeacherReportsHub extends StatelessWidget {
+  const TeacherReportsHub({super.key, required this.api, required this.today});
+  final ApiClient api;
+  final String today;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('التقارير', style: ui(size: 18, weight: FontWeight.w700))),
+      body: Atmosphere(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            SoftPanel(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => StaffReportsListPage(api: api, reportDate: today),
+                  ),
+                );
+              },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('تقارير اليوم', style: ui(size: 16, weight: FontWeight.w700)),
+                        Text(today, style: ui(size: 13, color: Brand.muted)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_left, color: Brand.muted),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            SoftPanel(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => WeeklyReportsPage(api: api)),
+                );
+              },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('التقارير الأسبوعية', style: ui(size: 16, weight: FontWeight.w700)),
+                        Text('موجز وتفصيلي — توليد تلقائي', style: ui(size: 13, color: Brand.muted)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_left, color: Brand.muted),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 class TeacherStudents extends StatefulWidget {
   const TeacherStudents({super.key, required this.api});
   final ApiClient api;
@@ -304,20 +311,22 @@ class _TeacherStudentsState extends State<TeacherStudents> {
       final d = await widget.api.get('/dashboards/teacher') as Map<String, dynamic>;
       final groups = (d['groups'] as List<dynamic>?) ?? [];
       final blocks = <Map<String, dynamic>>[];
+      final seenIds = <String>{};
       for (final g in groups) {
-        final group = g['group'] as Map<String, dynamic>;
+        final group = Map<String, dynamic>.from(g['group'] as Map);
         final students = <Map<String, dynamic>>[];
-        for (final s in (g['students'] as List<dynamic>? ?? [])) {
+        for (final raw in (g['students'] as List<dynamic>? ?? [])) {
+          final s = Map<String, dynamic>.from(raw as Map);
+          final sid = '${s['id']}';
+          if (seenIds.contains(sid)) continue;
+          seenIds.add(sid);
           students.add({
-            ...Map<String, dynamic>.from(s as Map),
+            ...s,
             'groupId': group['id'],
             'groupName': group['name'],
           });
         }
-        blocks.add({
-          'group': group,
-          'students': students,
-        });
+        blocks.add({'group': group, 'students': students});
       }
       setState(() {
         dash = d;
@@ -356,8 +365,11 @@ class _TeacherStudentsState extends State<TeacherStudents> {
             ],
           ),
           const SizedBox(height: 4),
-          Text('إحصاء اليوم: ${dash?['today']}', style: ui(size: 13, color: Brand.muted)),
-          const SizedBox(height: 12),
+          Text(
+            'كل طالب يظهر تحت مجموعته فقط · ${dash?['today'] ?? ''}',
+            style: ui(size: 13, color: Brand.muted),
+          ),
+          const SizedBox(height: 14),
           if (groupBlocks.isEmpty)
             const EmptyState(
               icon: Icons.school_outlined,
@@ -368,48 +380,64 @@ class _TeacherStudentsState extends State<TeacherStudents> {
             ...groupBlocks.map((block) {
               final group = block['group'] as Map<String, dynamic>;
               final students = block['students'] as List<Map<String, dynamic>>;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SoftPanel(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => GroupDetailPage(
-                            api: widget.api,
-                            groupId: '${group['id']}',
-                            groupName: '${group['name']}',
+              final status = '${group['status'] ?? ''}';
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SoftPanel(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => GroupDetailPage(
+                              api: widget.api,
+                              groupId: '${group['id']}',
+                              groupName: '${group['name']}',
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text('${group['name']}', style: ui(size: 17, weight: FontWeight.w700)),
-                        ),
-                        StatusChip(
-                          label: '${students.length} طالب',
-                          tone: ChipTone.neutral,
-                        ),
-                        const Icon(Icons.chevron_left, color: Brand.muted),
-                      ],
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          const Icon(Icons.groups_rounded, color: Brand.forestMid),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${group['name']}', style: ui(size: 17, weight: FontWeight.w700)),
+                                Text(
+                                  status == 'pending_approval'
+                                      ? 'بانتظار موافقة المشرف · موجز / تفصيلي'
+                                      : 'اضغط للعرض الموجز أو التفصيلي',
+                                  style: ui(size: 12, color: Brand.muted),
+                                ),
+                              ],
+                            ),
+                          ),
+                          StatusChip(
+                            label: '${students.length} طالب',
+                            tone: ChipTone.neutral,
+                          ),
+                          const Icon(Icons.chevron_left, color: Brand.muted),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (students.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16, right: 8),
-                      child: Text('لا طلبة في هذه المجموعة بعد', style: ui(size: 13, color: Brand.muted)),
-                    )
-                  else
-                    ...students.map((s) => SoftPanel(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text('${s['name']}', style: ui(weight: FontWeight.w700)),
-                            subtitle: Text('${s['phone']}', style: ui(size: 12, color: Brand.muted)),
-                            trailing: const Icon(Icons.chevron_left),
+                    if (students.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 4, 0),
+                        child: Text(
+                          'لا طلبة في هذه المجموعة بعد',
+                          style: ui(size: 13, color: Brand.muted),
+                        ),
+                      )
+                    else
+                      ...students.map(
+                        (s) => Padding(
+                          padding: const EdgeInsets.only(top: 8, right: 12),
+                          child: SoftPanel(
+                            margin: EdgeInsets.zero,
                             onTap: () async {
                               await Navigator.of(context).push(
                                 MaterialPageRoute(
@@ -423,10 +451,27 @@ class _TeacherStudentsState extends State<TeacherStudents> {
                               );
                               await _load();
                             },
+                            child: Row(
+                              children: [
+                                const Icon(Icons.person_outline, color: Brand.forestMid, size: 22),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('${s['name']}', style: ui(weight: FontWeight.w700)),
+                                      Text('${s['phone']}', style: ui(size: 12, color: Brand.muted)),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_left, color: Brand.muted),
+                              ],
+                            ),
                           ),
-                        )),
-                  const SizedBox(height: 8),
-                ],
+                        ),
+                      ),
+                  ],
+                ),
               );
             }),
         ],
@@ -744,103 +789,6 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
       onSelected: (_) => setState(() => statusByStudent[id] = value),
       selectedColor: Brand.leaf.withValues(alpha: 0.25),
       labelStyle: ui(size: 13, weight: FontWeight.w600, color: selected ? Brand.forest : Brand.inkSoft),
-    );
-  }
-}
-
-class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key, required this.api});
-  final ApiClient api;
-
-  @override
-  State<NotificationsPage> createState() => _NotificationsPageState();
-}
-
-class _NotificationsPageState extends State<NotificationsPage> {
-  List<dynamic> items = [];
-  bool loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final n = await widget.api.get('/notifications') as List<dynamic>;
-      setState(() {
-        items = n;
-        loading = false;
-      });
-    } catch (e) {
-      setState(() => loading = false);
-      if (mounted) showToast(context, e.toString(), error: true);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text('الإشعارات', style: ui(size: 22, weight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          if (items.isEmpty)
-            const EmptyState(
-              icon: Icons.notifications_none,
-              title: 'لا إشعارات جديدة',
-              subtitle: 'ستظهر هنا تنبيهات القبول والملاحظات والتقارير',
-            )
-          else
-            ...items.map((n) {
-              final item = Map<String, dynamic>.from(n as Map);
-              final payload = item['payload'] is Map
-                  ? Map<String, dynamic>.from(item['payload'] as Map)
-                  : <String, dynamic>{};
-              final reportId = payload['reportId']?.toString();
-              final canOpen = item['type'] == 'daily_report_submitted' &&
-                  reportId != null &&
-                  reportId.isNotEmpty;
-              return SoftPanel(
-                margin: const EdgeInsets.only(bottom: 8),
-                onTap: canOpen
-                    ? () => openDailyReportDetail(
-                          context,
-                          widget.api,
-                          reportId: reportId,
-                        )
-                    : null,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text('${item['title']}', style: ui(weight: FontWeight.w700)),
-                        ),
-                        if (canOpen)
-                          Text('عرض', style: ui(size: 12, color: Brand.forestMid, weight: FontWeight.w700)),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text('${item['body']}', style: ui(color: Brand.muted)),
-                    if (canOpen) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'اضغط لفتح التقرير الكامل للطالب',
-                        style: ui(size: 12, color: Brand.forestMid),
-                      ),
-                    ],
-                  ],
-                ),
-              );
-            }),
-        ],
-      ),
     );
   }
 }

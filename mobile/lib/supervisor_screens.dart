@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/groups_catalog.dart';
+import 'package:ertaki_mobile/hub_menu.dart';
 import 'package:ertaki_mobile/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -11,10 +12,12 @@ class SupervisorHome extends StatefulWidget {
     required this.api,
     required this.me,
     required this.onGoJoins,
+    this.onOpenNotifications,
   });
   final ApiClient api;
   final Map<String, dynamic> me;
   final VoidCallback onGoJoins;
+  final VoidCallback? onOpenNotifications;
 
   @override
   State<SupervisorHome> createState() => _SupervisorHomeState();
@@ -44,159 +47,65 @@ class _SupervisorHomeState extends State<SupervisorHome> {
     }
   }
 
+  void _open(Widget page) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
+
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
     final pendingJoins = (data?['pendingJoins'] as num?)?.toInt() ?? 0;
     final pendingAccounts = (data?['pendingAccounts'] as num?)?.toInt() ?? 0;
-    final metrics = [
-      ('تفعيل معلمين', pendingAccounts),
-      ('طلبات انضمام', pendingJoins),
-      ('تقصير مفتوح', (data?['openInfractions'] as num?)?.toInt() ?? 0),
-      ('نشطون', (data?['activeStudents'] as num?)?.toInt() ?? 0),
-      ('الطلبة', (data?['students'] as num?)?.toInt() ?? 0),
-      ('المعلمون', (data?['teachers'] as num?)?.toInt() ?? 0),
-      ('المجموعات', (data?['groups'] as num?)?.toInt() ?? 0),
-    ];
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
-          Text('مرحباً ${widget.me['firstName']}', style: ui(size: 22, weight: FontWeight.w700)),
-          Text('لوحة المشرف · ${data?['today']}', style: ui(size: 13, color: Brand.muted)),
-          const SizedBox(height: 12),
-          if (pendingAccounts > 0)
-            SoftPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'معلمون بانتظار التفعيل ($pendingAccounts)',
-                          style: ui(size: 17, weight: FontWeight.w700),
-                        ),
-                      ),
-                      const StatusChip(label: 'مطلوب', tone: ChipTone.warn),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'الطلبة يُفعَّلون فوراً — راجع تسجيلات المعلمين فقط',
-                    style: ui(size: 13, color: Brand.muted),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: widget.onGoJoins,
-                    icon: const Icon(Icons.verified_user_outlined),
-                    label: const Text('مراجعة الحسابات'),
-                  ),
-                ],
-              ),
-            )
-          else if (pendingJoins > 0)
-            SoftPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'طلبات انضمام بانتظارك ($pendingJoins)',
-                          style: ui(size: 17, weight: FontWeight.w700),
-                        ),
-                      ),
-                      const StatusChip(label: 'مطلوب', tone: ChipTone.warn),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'المعلم أو المشرف يقبل — قبول واحد يكفي',
-                    style: ui(size: 13, color: Brand.muted),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: widget.onGoJoins,
-                    icon: const Icon(Icons.how_to_reg_outlined),
-                    label: const Text('فتح الطلبات'),
-                  ),
-                ],
-              ),
-            )
-          else
-            SoftPanel(
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle_outline, color: Brand.forestMid),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text('لا حسابات أو طلبات معلّقة', style: ui(weight: FontWeight.w600)),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 14),
-          const SectionTitle('نظرة اليوم'),
-          SoftPanel(
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: metrics
-                  .map(
-                    (m) => SizedBox(
-                      width: 96,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(m.$1, style: ui(size: 12, color: Brand.muted)),
-                          const SizedBox(height: 4),
-                          Text('${m.$2}', style: ui(size: 22, weight: FontWeight.w700, color: Brand.forest)),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
+      child: RoleHubHome(
+        title: 'مرحباً ${widget.me['firstName']}',
+        subtitle: 'لوحة المشرف · ${data?['today'] ?? ''}',
+        header: SoftPanel(
+          child: Text(
+            pendingAccounts > 0
+                ? '$pendingAccounts معلم بانتظار التفعيل'
+                : (pendingJoins > 0
+                    ? '$pendingJoins طلب انضمام معلّق'
+                    : 'لا مهام عاجلة حالياً'),
+            style: ui(weight: FontWeight.w700),
           ),
-          const SizedBox(height: 14),
-          SoftPanel(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => SupervisorDirectoryPage(api: widget.api)),
-              );
-            },
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('الدليل الشامل', style: ui(size: 16, weight: FontWeight.w700)),
-                      Text('كل المجموعات والطلبة والمعلمين', style: ui(size: 13, color: Brand.muted)),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_left, color: Brand.muted),
-              ],
-            ),
+        ),
+        categories: [
+          HubCategory(
+            icon: Icons.verified_user_outlined,
+            label: 'تفعيل المعلمين',
+            subtitle: 'موافقة التسجيل',
+            badge: pendingAccounts > 0 ? '$pendingAccounts' : null,
+            onTap: widget.onGoJoins,
           ),
-          const SizedBox(height: 14),
-          SoftPanel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('لوحة الويب أيضاً متاحة', style: ui(size: 15, weight: FontWeight.w700)),
-                const SizedBox(height: 6),
-                Text(
-                  'إدارة المجموعات والمستخدمين من التطبيق أو الويب. محتوى التقارير اليومية/الأسبوعية للمعلمين فقط.',
-                  style: ui(size: 13, color: Brand.muted),
-                ),
-              ],
-            ),
+          HubCategory(
+            icon: Icons.how_to_reg_outlined,
+            label: 'طلبات الانضمام',
+            subtitle: 'قبول أو رفض',
+            badge: pendingJoins > 0 ? '$pendingJoins' : null,
+            onTap: () => _open(SupervisorJoins(api: widget.api)),
+          ),
+          HubCategory(
+            icon: Icons.groups_outlined,
+            label: 'المجموعات',
+            subtitle: 'موافقة الإنشاء · موجز/تفصيلي',
+            onTap: () => _open(Scaffold(
+              appBar: AppBar(title: Text('المجموعات', style: ui(size: 18, weight: FontWeight.w700))),
+              body: Atmosphere(child: SupervisorGroups(api: widget.api)),
+            )),
+          ),
+          HubCategory(
+            icon: Icons.menu_book_outlined,
+            label: 'الدليل',
+            subtitle: 'طلبة · معلمون · مجموعات',
+            onTap: () => _open(SupervisorDirectoryPage(api: widget.api)),
+          ),
+          HubCategory(
+            icon: Icons.notifications_outlined,
+            label: 'الإشعارات',
+            onTap: () => widget.onOpenNotifications?.call(),
           ),
         ],
       ),

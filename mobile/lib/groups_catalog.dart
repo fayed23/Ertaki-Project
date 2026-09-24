@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/widgets.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 IconData genderIcon(String? gender) {
   switch (gender) {
@@ -49,7 +50,7 @@ String groupStatusAr(String? status) {
   }
 }
 
-/// First-run marketplace: list open groups and request join to one or many.
+/// First-run marketplace: gender-matched groups; one pending/active path only.
 class GroupsCatalogPage extends StatefulWidget {
   const GroupsCatalogPage({
     super.key,
@@ -67,9 +68,10 @@ class GroupsCatalogPage extends StatefulWidget {
 
 class _GroupsCatalogPageState extends State<GroupsCatalogPage> {
   List<dynamic> groups = [];
-  final Set<String> pendingIds = {};
+  Map<String, String> pendingByGroup = {}; // groupId -> joinRequestId
   final Set<String> requesting = {};
   bool loading = true;
+  bool hasMembership = false;
 
   @override
   void initState() {
@@ -82,22 +84,21 @@ class _GroupsCatalogPageState extends State<GroupsCatalogPage> {
     try {
       final g = await widget.api.get('/groups') as List<dynamic>;
       final joins = await widget.api.get('/join-requests') as List<dynamic>;
-      final pending = <String>{};
+      final pending = <String, String>{};
       for (final j in joins) {
         if (j is Map && j['status'] == 'pending') {
           final gid = '${j['groupId'] ?? (j['group'] as Map?)?['id']}';
-          if (gid.isNotEmpty && gid != 'null') pending.add(gid);
+          final jid = '${j['id']}';
+          if (gid.isNotEmpty && gid != 'null') pending[gid] = jid;
         }
       }
       final has = await widget.api.get('/memberships/has-group') as Map<String, dynamic>;
-      if (has['hasGroup'] == true) {
-        widget.onMembershipUnlocked?.call();
-      }
+      final member = has['hasGroup'] == true;
+      if (member) widget.onMembershipUnlocked?.call();
       setState(() {
         groups = g;
-        pendingIds
-          ..clear()
-          ..addAll(pending);
+        pendingByGroup = pending;
+        hasMembership = member;
         loading = false;
       });
     } catch (e) {
@@ -107,13 +108,32 @@ class _GroupsCatalogPageState extends State<GroupsCatalogPage> {
   }
 
   Future<void> _request(String groupId) async {
+    if (hasMembership || pendingByGroup.isNotEmpty) {
+      showToast(context, 'يمكنك طلب مجموعة واحدة فقط — ألغِ الطلب الحالي أولاً', error: true);
+      return;
+    }
     setState(() => requesting.add(groupId));
     try {
-      await widget.api.post('/join-requests', {'groupId': groupId});
-      setState(() => pendingIds.add(groupId));
+      final res = await widget.api.post('/join-requests', {'groupId': groupId});
+      setState(() => pendingByGroup[groupId] = '${res['id']}');
       if (mounted) showToast(context, 'تم إرسال طلب الانضمام');
       final has = await widget.api.get('/memberships/has-group') as Map<String, dynamic>;
       if (has['hasGroup'] == true) widget.onMembershipUnlocked?.call();
+    } catch (e) {
+      if (mounted) showToast(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => requesting.remove(groupId));
+    }
+  }
+
+  Future<void> _cancel(String groupId) async {
+    final jid = pendingByGroup[groupId];
+    if (jid == null) return;
+    setState(() => requesting.add(groupId));
+    try {
+      await widget.api.patch('/join-requests/$jid/cancel', {});
+      setState(() => pendingByGroup.remove(groupId));
+      if (mounted) showToast(context, 'تم إلغاء الطلب');
     } catch (e) {
       if (mounted) showToast(context, e.toString(), error: true);
     } finally {
@@ -148,7 +168,7 @@ class _GroupsCatalogPageState extends State<GroupsCatalogPage> {
             ...groups.map((raw) {
               final g = Map<String, dynamic>.from(raw as Map);
               final id = '${g['id']}';
-              final isPending = pendingIds.contains(id);
+              final isPending = pendingByGroup.containsKey(id);
               final isBusy = requesting.contains(id);
               return SoftPanel(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -187,15 +207,26 @@ class _GroupsCatalogPageState extends State<GroupsCatalogPage> {
                       total: (g['seatCount'] as num?)?.toInt() ?? 0,
                     ),
                     const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: isPending || isBusy ? null : () => _request(id),
-                      icon: Icon(isPending ? Icons.hourglass_top_rounded : Icons.login_rounded),
-                      label: Text(
-                        isPending
-                            ? 'طلب قيد المراجعة'
-                            : (isBusy ? 'جاري الإرسال…' : 'طلب الانضمام'),
+                    if (isPending)
+                      OutlinedButton.icon(
+                        onPressed: isBusy ? null : () => _cancel(id),
+                        icon: const Icon(Icons.close_rounded),
+                        label: Text(isBusy ? 'جاري الإلغاء…' : 'إلغاء الطلب'),
+                      )
+                    else
+                      FilledButton.icon(
+                        onPressed: (isBusy || hasMembership || pendingByGroup.isNotEmpty)
+                            ? null
+                            : () => _request(id),
+                        icon: const Icon(Icons.login_rounded),
+                        label: Text(
+                          hasMembership
+                              ? 'أنت منضم لمجموعة'
+                              : (pendingByGroup.isNotEmpty
+                                  ? 'لديك طلب آخر معلّق'
+                                  : (isBusy ? 'جاري الإرسال…' : 'طلب الانضمام')),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               );
@@ -278,7 +309,7 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
                         children: [
                           Expanded(
                             child: Text(
-                              detailed ? 'عرض تفصيلي' : 'عرض موجز — تقارير اليوم',
+                              detailed ? 'عرض تفصيلي' : 'عرض موجز — نظرة المجموعة',
                               style: ui(size: 15, weight: FontWeight.w700),
                             ),
                           ),
@@ -289,6 +320,32 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
                         ],
                       ),
                     ),
+                    if ((data?['whatsappUrl'] ?? (data?['group'] as Map?)?['whatsappUrl']) != null &&
+                        '${data?['whatsappUrl'] ?? (data?['group'] as Map?)?['whatsappUrl']}'.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      SoftPanel(
+                        onTap: () async {
+                          final raw = '${data?['whatsappUrl'] ?? (data?['group'] as Map?)?['whatsappUrl']}';
+                          final uri = Uri.tryParse(raw);
+                          if (uri != null) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        child: Row(
+                          children: [
+                            const Icon(Icons.chat_outlined, color: Brand.forestMid),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'واتساب المجموعة',
+                                style: ui(weight: FontWeight.w700),
+                              ),
+                            ),
+                            const Icon(Icons.open_in_new, size: 18, color: Brand.muted),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     ...(((data?['students'] as List<dynamic>?) ?? []).map((raw) {
                       final s = Map<String, dynamic>.from(raw as Map);
@@ -354,6 +411,7 @@ class CreateGroupPage extends StatefulWidget {
 class _CreateGroupPageState extends State<CreateGroupPage> {
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
+  final waCtrl = TextEditingController();
   String gender = 'men';
   String day = 'السبت';
   TimeOfDay start = const TimeOfDay(hour: 20, minute: 0);
@@ -393,6 +451,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         'sessionEndTime': _fmt(end),
         'weeklySessionTime': _fmt(start),
         if (descCtrl.text.trim().isNotEmpty) 'description': descCtrl.text.trim(),
+        if (waCtrl.text.trim().isNotEmpty) 'whatsappUrl': waCtrl.text.trim(),
       });
       if (!mounted) return;
       showToast(context, 'أُرسل طلب إنشاء المجموعة للمشرف');
@@ -408,6 +467,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
   void dispose() {
     nameCtrl.dispose();
     descCtrl.dispose();
+    waCtrl.dispose();
     super.dispose();
   }
 
@@ -475,6 +535,17 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: waCtrl,
+                    textDirection: TextDirection.ltr,
+                    keyboardType: TextInputType.url,
+                    decoration: const InputDecoration(
+                      labelText: 'رابط واتساب المجموعة',
+                      hintText: 'https://chat.whatsapp.com/...',
+                      helperText: 'يظهر في النظرة الموجزة بعد موافقة المشرف',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(

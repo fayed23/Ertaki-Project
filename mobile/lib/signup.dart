@@ -19,6 +19,7 @@ class _SignupPageState extends State<SignupPage> {
   final passCtrl = TextEditingController();
   final cityCtrl = TextEditingController();
   String role = 'student';
+  String gender = 'men';
   bool loading = false;
   String? successMessage;
 
@@ -45,6 +46,7 @@ class _SignupPageState extends State<SignupPage> {
         'phone': phoneCtrl.text.trim(),
         'password': passCtrl.text,
         'role': role,
+        if (role == 'student') 'gender': gender,
         if (cityCtrl.text.trim().isNotEmpty) 'city': cityCtrl.text.trim(),
       });
       final token = res['accessToken'] as String?;
@@ -134,6 +136,19 @@ class _SignupPageState extends State<SignupPage> {
                             selected: {role},
                             onSelectionChanged: (s) => setState(() => role = s.first),
                           ),
+                          if (role == 'student') ...[
+                            const SizedBox(height: 14),
+                            Text('الجنس', style: ui(size: 13, color: Brand.muted)),
+                            const SizedBox(height: 6),
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment(value: 'men', label: Text('رجال'), icon: Icon(Icons.man_rounded)),
+                                ButtonSegment(value: 'women', label: Text('نساء'), icon: Icon(Icons.woman_rounded)),
+                              ],
+                              selected: {gender},
+                              onSelectionChanged: (s) => setState(() => gender = s.first),
+                            ),
+                          ],
                           const SizedBox(height: 14),
                           TextField(
                             controller: firstCtrl,

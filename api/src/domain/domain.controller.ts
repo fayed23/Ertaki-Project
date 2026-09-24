@@ -103,6 +103,12 @@ export class DomainController {
     return this.domain.requestJoin(user, body.groupId);
   }
 
+  @Patch('join-requests/:id/cancel')
+  @Roles(UserRole.STUDENT)
+  cancelJoin(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.domain.cancelJoinRequest(user, id);
+  }
+
   @Get('join-requests')
   listJoinRequests(@CurrentUser() user: User) {
     return this.domain.listJoinRequests(user);
