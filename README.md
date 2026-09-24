@@ -136,7 +136,7 @@ Demo query params on Flutter web: `?phone=0500000003&auto=1` (student) or `?phon
 
 ### How to install APK on phone
 
-1. Download [`releases/ertaki-android-release.apk`](./releases/ertaki-android-release.apk) from this repo, or the GitHub Release **[v1.0.2-apk](https://github.com/fayed23/Ertaki-Project/releases/tag/v1.0.2-apk)** asset.
+1. Download [`releases/ertaki-android-release.apk`](./releases/ertaki-android-release.apk) from this repo, or the GitHub Release **[v1.0.3-apk](https://github.com/fayed23/Ertaki-Project/releases/tag/v1.0.3-apk)** asset.
 2. On Android: **Settings → Security / Apps → Install unknown apps** (or **Allow from this source**) for Chrome/Files.
 3. Open the APK and install.
 4. Start the API on your PC (same Wi‑Fi) or use a public URL.

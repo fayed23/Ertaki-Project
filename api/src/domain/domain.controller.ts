@@ -162,6 +162,14 @@ export class DomainController {
     });
   }
 
+  @Get('daily-reports/:id')
+  getDaily(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+  ) {
+    return this.domain.getDailyReport(user, id);
+  }
+
   @Post('weekly-reports/generate')
   @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)
   generateWeekly(

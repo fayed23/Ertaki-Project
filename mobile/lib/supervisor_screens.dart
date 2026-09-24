@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
+import 'package:ertaki_mobile/report_detail.dart';
 import 'package:ertaki_mobile/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -48,10 +49,12 @@ class _SupervisorHomeState extends State<SupervisorHome> {
     if (loading) return const Center(child: CircularProgressIndicator());
     final pendingJoins = (data?['pendingJoins'] as num?)?.toInt() ?? 0;
     final pendingAccounts = (data?['pendingAccounts'] as num?)?.toInt() ?? 0;
+    final reportsToday = (data?['reportsToday'] as num?)?.toInt() ?? 0;
+    final todayReports = (data?['todayReports'] as List<dynamic>?) ?? [];
     final metrics = [
       ('تفعيل حسابات', pendingAccounts),
       ('طلبات انضمام', pendingJoins),
-      ('تقارير اليوم', (data?['reportsToday'] as num?)?.toInt() ?? 0),
+      ('تقارير اليوم', reportsToday),
       ('تقصير مفتوح', (data?['openInfractions'] as num?)?.toInt() ?? 0),
       ('نشطون', (data?['activeStudents'] as num?)?.toInt() ?? 0),
       ('الطلبة', (data?['students'] as num?)?.toInt() ?? 0),
@@ -162,6 +165,70 @@ class _SupervisorHomeState extends State<SupervisorHome> {
                   .toList(),
             ),
           ),
+          const SizedBox(height: 14),
+          SoftPanel(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => StaffReportsListPage(
+                    api: widget.api,
+                    reportDate: '${data?['today'] ?? todayIso()}',
+                  ),
+                ),
+              );
+            },
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('تقارير اليوم', style: ui(size: 16, weight: FontWeight.w700)),
+                      Text(
+                        reportsToday == 0
+                            ? 'لا تقارير بعد — افتح القائمة'
+                            : '$reportsToday تقرير — اضغط للعرض بالاسم الكامل',
+                        style: ui(size: 13, color: Brand.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                StatusChip(
+                  label: '$reportsToday',
+                  tone: reportsToday > 0 ? ChipTone.ok : ChipTone.neutral,
+                ),
+                const Icon(Icons.chevron_left, color: Brand.muted),
+              ],
+            ),
+          ),
+          if (todayReports.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const SectionTitle('آخر التقارير'),
+            ...todayReports.take(6).map((raw) {
+              final r = Map<String, dynamic>.from(raw as Map);
+              final name = r['studentName'] as String? ?? 'طالب';
+              return SoftPanel(
+                margin: const EdgeInsets.only(bottom: 6),
+                onTap: () => openDailyReportDetail(
+                  context,
+                  widget.api,
+                  reportId: '${r['id']}',
+                  report: r,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '$name · ${r['groupName'] ?? '—'}',
+                        style: ui(weight: FontWeight.w600),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_left, size: 20, color: Brand.muted),
+                  ],
+                ),
+              );
+            }),
+          ],
           const SizedBox(height: 14),
           SoftPanel(
             child: Column(

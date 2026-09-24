@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
+import 'package:ertaki_mobile/report_detail.dart';
 import 'package:ertaki_mobile/widgets.dart';
 
 class TeacherHome extends StatefulWidget {
@@ -41,9 +42,14 @@ class _TeacherHomeState extends State<TeacherHome> {
     final groups = (data?['groups'] as List<dynamic>?) ?? [];
     int missing = 0;
     int infra = 0;
+    final todayReports = <Map<String, dynamic>>[];
     for (final g in groups) {
       missing += (g['missingToday'] as num?)?.toInt() ?? 0;
       infra += (g['openInfractions'] as num?)?.toInt() ?? 0;
+      final tr = (g['todayReports'] as List<dynamic>?) ?? [];
+      for (final r in tr) {
+        todayReports.add(Map<String, dynamic>.from(r as Map));
+      }
     }
 
     return RefreshIndicator(
@@ -68,6 +74,69 @@ class _TeacherHomeState extends State<TeacherHome> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          SoftPanel(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => StaffReportsListPage(
+                    api: widget.api,
+                    reportDate: '${data?['today'] ?? todayIso()}',
+                  ),
+                ),
+              );
+            },
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('تقارير اليوم', style: ui(size: 16, weight: FontWeight.w700)),
+                      Text(
+                        todayReports.isEmpty
+                            ? 'لا تقارير بعد — اضغط لفتح القائمة'
+                            : '${todayReports.length} تقرير — اضغط للعرض الكامل',
+                        style: ui(size: 13, color: Brand.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                StatusChip(
+                  label: '${todayReports.length}',
+                  tone: todayReports.isEmpty ? ChipTone.neutral : ChipTone.ok,
+                ),
+                const Icon(Icons.chevron_left, color: Brand.muted),
+              ],
+            ),
+          ),
+          if (todayReports.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const SectionTitle('آخر ما وصل'),
+            ...todayReports.take(5).map((r) {
+              final name = r['studentName'] as String? ?? 'طالب';
+              return SoftPanel(
+                margin: const EdgeInsets.only(bottom: 6),
+                onTap: () => openDailyReportDetail(
+                  context,
+                  widget.api,
+                  reportId: '${r['id']}',
+                  report: r,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '$name · ${r['reportDate']}',
+                        style: ui(weight: FontWeight.w600),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_left, size: 20, color: Brand.muted),
+                  ],
+                ),
+              );
+            }),
+          ],
           const SizedBox(height: 12),
           const SectionTitle('مجموعاتي'),
           if (groups.isEmpty)
@@ -317,13 +386,29 @@ class _StudentFilePageState extends State<StudentFilePage> {
                   if (reports.isEmpty)
                     const Text('لا تقارير', style: TextStyle(color: Brand.muted))
                   else
-                    ...reports.take(5).map((r) => SoftPanel(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          child: Text(
-                            '${r['reportDate']} · القسط ${r['memorizedQuota'] == true ? '✓' : '✗'} · 50 ${r['completedFiftyRepetitions'] == true ? '✓' : '✗'}',
-                            style: ui(size: 13),
-                          ),
-                        )),
+                    ...reports.take(8).map((raw) {
+                      final r = Map<String, dynamic>.from(raw as Map);
+                      return SoftPanel(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        onTap: () => openDailyReportDetail(
+                          context,
+                          widget.api,
+                          reportId: '${r['id']}',
+                          report: r,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${r['reportDate']} · القسط ${r['memorizedQuota'] == true ? '✓' : '✗'} · 50 ${r['completedFiftyRepetitions'] == true ? '✓' : '✗'}',
+                                style: ui(size: 13),
+                              ),
+                            ),
+                            const Icon(Icons.chevron_left, size: 18, color: Brand.muted),
+                          ],
+                        ),
+                      );
+                    }),
                   const SizedBox(height: 8),
                   const SectionTitle('إضافة ملاحظة'),
                   SoftPanel(
@@ -568,17 +653,49 @@ class _NotificationsPageState extends State<NotificationsPage> {
               subtitle: 'ستظهر هنا تنبيهات القبول والملاحظات والتقارير',
             )
           else
-            ...items.map((n) => SoftPanel(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${n['title']}', style: ui(weight: FontWeight.w700)),
-                      const SizedBox(height: 4),
-                      Text('${n['body']}', style: ui(color: Brand.muted)),
+            ...items.map((n) {
+              final item = Map<String, dynamic>.from(n as Map);
+              final payload = item['payload'] is Map
+                  ? Map<String, dynamic>.from(item['payload'] as Map)
+                  : <String, dynamic>{};
+              final reportId = payload['reportId']?.toString();
+              final canOpen = item['type'] == 'daily_report_submitted' &&
+                  reportId != null &&
+                  reportId.isNotEmpty;
+              return SoftPanel(
+                margin: const EdgeInsets.only(bottom: 8),
+                onTap: canOpen
+                    ? () => openDailyReportDetail(
+                          context,
+                          widget.api,
+                          reportId: reportId,
+                        )
+                    : null,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text('${item['title']}', style: ui(weight: FontWeight.w700)),
+                        ),
+                        if (canOpen)
+                          Text('عرض', style: ui(size: 12, color: Brand.forestMid, weight: FontWeight.w700)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text('${item['body']}', style: ui(color: Brand.muted)),
+                    if (canOpen) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'اضغط لفتح التقرير الكامل للطالب',
+                        style: ui(size: 12, color: Brand.forestMid),
+                      ),
                     ],
-                  ),
-                )),
+                  ],
+                ),
+              );
+            }),
         ],
       ),
     );

@@ -453,9 +453,14 @@ export class DomainService {
       'daily_report_submitted',
       'تقرير يومي جديد',
       `${actor.firstName} ${actor.lastName} أرسل تقرير ${input.reportDate}`,
-      { reportId: report.id, reportDate: input.reportDate },
+      {
+        reportId: report.id,
+        reportDate: input.reportDate,
+        studentId: actor.id,
+        studentName: `${actor.firstName} ${actor.lastName}`,
+      },
     );
-    return report;
+    return this.enrichDailyReport(report);
   }
 
   /**
@@ -467,24 +472,28 @@ export class DomainService {
     actor: User,
     filters: { studentId?: string; reportDate?: string; groupId?: string },
   ) {
+    let rows: DailyReport[];
     if (actor.role === UserRole.STUDENT) {
-      return this.dailyReports.find({
+      rows = await this.dailyReports.find({
         where: {
           studentId: actor.id,
           ...(filters.reportDate ? { reportDate: filters.reportDate } : {}),
         },
         order: { reportDate: 'DESC' },
       });
+      return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
     }
     this.requireStaff(actor);
     if (filters.studentId) {
-      return this.dailyReports.find({
+      await this.assertStaffCanViewStudent(actor, filters.studentId);
+      rows = await this.dailyReports.find({
         where: {
           studentId: filters.studentId,
           ...(filters.reportDate ? { reportDate: filters.reportDate } : {}),
         },
         order: { reportDate: 'DESC' },
       });
+      return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
     }
     if (filters.groupId || actor.role === UserRole.TEACHER) {
       let groupId = filters.groupId;
@@ -504,11 +513,15 @@ export class DomainService {
             })
           ).map((m) => m.userId);
           if (!memberIds.length) return [];
-          return this.dailyReports
+          rows = await this.dailyReports
             .createQueryBuilder('r')
+            .leftJoinAndSelect('r.student', 'student')
             .where('r.studentId IN (:...memberIds)', { memberIds })
             .orderBy('r.reportDate', 'DESC')
+            .addOrderBy('r.submittedAt', 'DESC')
+            .take(200)
             .getMany();
+          return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
         }
       }
       const members = await this.memberships.find({
@@ -518,17 +531,96 @@ export class DomainService {
       if (!memberIds.length) return [];
       const qb = this.dailyReports
         .createQueryBuilder('r')
+        .leftJoinAndSelect('r.student', 'student')
         .where('r.studentId IN (:...memberIds)', { memberIds });
       if (filters.reportDate) {
         qb.andWhere('r.reportDate = :d', { d: filters.reportDate });
       }
-      return qb.orderBy('r.reportDate', 'DESC').getMany();
+      rows = await qb
+        .orderBy('r.reportDate', 'DESC')
+        .addOrderBy('r.submittedAt', 'DESC')
+        .take(200)
+        .getMany();
+      return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
     }
-    return this.dailyReports.find({
+    rows = await this.dailyReports.find({
       where: filters.reportDate ? { reportDate: filters.reportDate } : {},
-      order: { reportDate: 'DESC' },
+      order: { reportDate: 'DESC', submittedAt: 'DESC' },
       take: 200,
     });
+    return Promise.all(rows.map((r) => this.enrichDailyReport(r)));
+  }
+
+  async getDailyReport(actor: User, id: string) {
+    const report = await this.dailyReports.findOne({ where: { id } });
+    if (!report) throw new NotFoundException('التقرير غير موجود');
+    if (actor.role === UserRole.STUDENT) {
+      if (report.studentId !== actor.id) throw new ForbiddenException();
+    } else {
+      this.requireStaff(actor);
+      await this.assertStaffCanViewStudent(actor, report.studentId);
+    }
+    return this.enrichDailyReport(report);
+  }
+
+  private async assertStaffCanViewStudent(actor: User, studentId: string) {
+    if (this.isSupervisor(actor)) return;
+    if (actor.role !== UserRole.TEACHER) throw new ForbiddenException();
+    const myGroups = await this.groups.find({ where: { teacherId: actor.id } });
+    const ids = myGroups.map((g) => g.id);
+    if (!ids.length) throw new ForbiddenException();
+    const membership = await this.memberships.findOne({
+      where: ids.map((groupId) => ({
+        groupId,
+        userId: studentId,
+        leftAt: IsNull(),
+      })),
+    });
+    if (!membership) throw new ForbiddenException('هذا الطالب ليس في مجموعاتك');
+  }
+
+  private async enrichDailyReport(report: DailyReport) {
+    const student =
+      report.student ||
+      (await this.users.findOne({ where: { id: report.studentId } }));
+    const membership = await this.memberships.findOne({
+      where: { userId: report.studentId, leftAt: IsNull() },
+    });
+    const group = membership
+      ? await this.groups.findOne({ where: { id: membership.groupId } })
+      : null;
+    const safeStudent = student
+      ? {
+          id: student.id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          phone: student.phone,
+          role: student.role,
+          status: student.status,
+        }
+      : null;
+    return {
+      id: report.id,
+      studentId: report.studentId,
+      reportDate: report.reportDate,
+      memorizedQuota: report.memorizedQuota,
+      memorizationFrom: report.memorizationFrom,
+      memorizationTo: report.memorizationTo,
+      reviewPortion: report.reviewPortion,
+      reviewFrom: report.reviewFrom,
+      reviewTo: report.reviewTo,
+      completedFiftyRepetitions: report.completedFiftyRepetitions,
+      repeatedInOneSitting: report.repeatedInOneSitting,
+      readTafsir: report.readTafsir,
+      submittedAt: report.submittedAt,
+      createdAt: report.createdAt,
+      student: safeStudent,
+      studentName: safeStudent
+        ? `${safeStudent.firstName} ${safeStudent.lastName}`
+        : null,
+      group: group ? { id: group.id, name: group.name } : null,
+      groupName: group?.name ?? null,
+    };
   }
 
   private async evaluateContentInfractions(studentId: string, report: DailyReport) {
@@ -1170,6 +1262,18 @@ export class DomainService {
             .andWhere('r.reportDate = :today', { today })
             .getCount()
         : 0;
+      const todayReportsRaw = memberIds.length
+        ? await this.dailyReports
+            .createQueryBuilder('r')
+            .leftJoinAndSelect('r.student', 'student')
+            .where('r.studentId IN (:...memberIds)', { memberIds })
+            .andWhere('r.reportDate = :today', { today })
+            .orderBy('r.submittedAt', 'DESC')
+            .getMany()
+        : [];
+      const todayReports = await Promise.all(
+        todayReportsRaw.map((r) => this.enrichDailyReport(r)),
+      );
       const openInfractions = memberIds.length
         ? await this.infractions
             .createQueryBuilder('i')
@@ -1183,6 +1287,7 @@ export class DomainService {
         submittedToday,
         missingToday: Math.max(0, members.length - submittedToday),
         openInfractions,
+        todayReports,
         students: members.map((m) => ({
           id: m.user.id,
           name: `${m.user.firstName} ${m.user.lastName}`,
@@ -1218,6 +1323,14 @@ export class DomainService {
       this.infractions.count({ where: { resolved: false } }),
       this.dailyReports.count({ where: { reportDate: today } }),
     ]);
+    const todayRaw = await this.dailyReports.find({
+      where: { reportDate: today },
+      order: { submittedAt: 'DESC' },
+      take: 50,
+    });
+    const todayReports = await Promise.all(
+      todayRaw.map((r) => this.enrichDailyReport(r)),
+    );
     return {
       today,
       students,
@@ -1228,6 +1341,7 @@ export class DomainService {
       activeStudents,
       openInfractions,
       reportsToday,
+      todayReports,
     };
   }
 

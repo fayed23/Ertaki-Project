@@ -25,6 +25,27 @@ type Dashboard = {
   activeStudents: number;
   openInfractions: number;
   reportsToday: number;
+  todayReports?: DailyReportRow[];
+};
+
+type DailyReportRow = {
+  id: string;
+  reportDate: string;
+  studentId: string;
+  studentName?: string | null;
+  groupName?: string | null;
+  memorizedQuota: boolean;
+  memorizationFrom?: string | null;
+  memorizationTo?: string | null;
+  reviewPortion?: string | null;
+  reviewFrom?: string | null;
+  reviewTo?: string | null;
+  completedFiftyRepetitions: boolean;
+  repeatedInOneSitting: boolean;
+  readTafsir: boolean;
+  submittedAt?: string;
+  student?: User;
+  group?: { id: string; name: string } | null;
 };
 
 type JoinRequest = {
@@ -114,9 +135,11 @@ export default function AdminHome() {
   const [accounts, setAccounts] = useState<PendingAccount[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [tab, setTab] = useState<"dash" | "accounts" | "joins" | "groups" | "policies">(
-    "dash",
-  );
+  const [reports, setReports] = useState<DailyReportRow[]>([]);
+  const [selectedReport, setSelectedReport] = useState<DailyReportRow | null>(null);
+  const [tab, setTab] = useState<
+    "dash" | "accounts" | "joins" | "reports" | "groups" | "policies"
+  >("dash");
 
   const authed = useMemo(() => !!token && !!user, [token, user]);
 
@@ -142,18 +165,21 @@ export default function AdminHome() {
 
   async function refresh() {
     if (!token) return;
-    const [d, a, j, p, g] = await Promise.all([
+    const today = new Date().toISOString().slice(0, 10);
+    const [d, a, j, p, g, r] = await Promise.all([
       api<Dashboard>("/dashboards/supervisor", token),
       api<PendingAccount[]>("/account-approvals", token),
       api<JoinRequest[]>("/join-requests", token),
       api<Policy[]>("/infraction-policies", token),
       api<Group[]>("/groups", token),
+      api<DailyReportRow[]>(`/daily-reports?reportDate=${today}`, token),
     ]);
     setDashboard(d);
     setAccounts(a);
     setJoins(j);
     setPolicies(p);
     setGroups(g);
+    setReports(r);
   }
 
   useEffect(() => {
@@ -414,6 +440,7 @@ export default function AdminHome() {
               ["dash", "لوحة المؤشرات"],
               ["accounts", `تفعيل الحسابات${pendingAccounts.length ? ` (${pendingAccounts.length})` : ""}`],
               ["joins", `طلبات الانضمام${pendingJoins.length ? ` (${pendingJoins.length})` : ""}`],
+              ["reports", `تقارير اليوم${reports.length ? ` (${reports.length})` : ""}`],
               ["groups", "المجموعات"],
               ["policies", "سياسات التقصير"],
             ] as const
@@ -531,6 +558,24 @@ export default function AdminHome() {
                 </div>
               ))}
             </div>
+
+            {(dashboard.reportsToday > 0 || reports.length > 0) && (
+              <div className="panel" style={{ padding: "1rem 1.15rem", marginTop: "1rem" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: "1.15rem" }}>
+                      تقارير اليوم ({dashboard.reportsToday || reports.length})
+                    </h2>
+                    <p style={{ margin: "0.3rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
+                      افتح التفاصيل الكاملة باسم الطالب وكل الحقول
+                    </p>
+                  </div>
+                  <button type="button" className="btn-primary" style={{ boxShadow: "none" }} onClick={() => setTab("reports")}>
+                    عرض التقارير
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
@@ -634,6 +679,120 @@ export default function AdminHome() {
                   )}
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {tab === "reports" && (
+          <section className="anim-rise-delay-2">
+            <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.25rem" }}>تقارير اليوم</h2>
+            <p style={{ margin: "0 0 0.85rem", color: "var(--muted)" }}>
+              قائمة بأسماء الطلبة — اضغط لعرض التقرير الكامل (حفظ، مراجعة، تكرار، تفسير)
+            </p>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: selectedReport ? "minmax(260px, 1fr) minmax(280px, 1.1fr)" : "1fr",
+                gap: "1rem",
+              }}
+            >
+              <div className="panel">
+                {reports.length === 0 && (
+                  <p className="row-item" style={{ color: "var(--muted)", margin: 0 }}>
+                    لا تقارير لهذا اليوم بعد.
+                  </p>
+                )}
+                {reports.map((r) => {
+                  const name =
+                    r.studentName ||
+                    (r.student ? `${r.student.firstName} ${r.student.lastName}` : "طالب");
+                  const active = selectedReport?.id === r.id;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      className="row-item"
+                      onClick={async () => {
+                        if (!token) return;
+                        try {
+                          const full = await api<DailyReportRow>(`/daily-reports/${r.id}`, token);
+                          setSelectedReport(full);
+                        } catch (e) {
+                          setSelectedReport(r);
+                          setError(e instanceof Error ? e.message : String(e));
+                        }
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "right",
+                        background: active ? "rgba(23,107,77,0.08)" : "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        font: "inherit",
+                        color: "inherit",
+                      }}
+                    >
+                      <p style={{ margin: 0, fontWeight: 700 }}>{name}</p>
+                      <p style={{ margin: "0.25rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+                        {r.groupName || r.group?.name || "—"} · {r.reportDate}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedReport && (
+                <div className="panel" style={{ padding: "1.15rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "flex-start" }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: "1.2rem" }}>
+                        {selectedReport.studentName ||
+                          (selectedReport.student
+                            ? `${selectedReport.student.firstName} ${selectedReport.student.lastName}`
+                            : "طالب")}
+                      </h3>
+                      <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
+                        {selectedReport.reportDate}
+                        {selectedReport.groupName || selectedReport.group?.name
+                          ? ` · ${selectedReport.groupName || selectedReport.group?.name}`
+                          : ""}
+                      </p>
+                    </div>
+                    <button type="button" className="btn-ghost" onClick={() => setSelectedReport(null)}>
+                      إغلاق
+                    </button>
+                  </div>
+                  <div style={{ marginTop: "1rem", display: "grid", gap: "0.55rem" }}>
+                    {(
+                      [
+                        ["حفظ القسط", selectedReport.memorizedQuota ? "نعم" : "لا"],
+                        ["من", selectedReport.memorizationFrom || "—"],
+                        ["إلى", selectedReport.memorizationTo || "—"],
+                        ["ورد المراجعة", selectedReport.reviewPortion || "—"],
+                        ["مراجعة من", selectedReport.reviewFrom || "—"],
+                        ["مراجعة إلى", selectedReport.reviewTo || "—"],
+                        ["50 تكرار", selectedReport.completedFiftyRepetitions ? "نعم" : "لا"],
+                        ["مجلس واحد", selectedReport.repeatedInOneSitting ? "نعم" : "لا"],
+                        ["تفسير", selectedReport.readTafsir ? "نعم" : "لا"],
+                      ] as const
+                    ).map(([label, value]) => (
+                      <div
+                        key={label}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "1rem",
+                          borderBottom: "1px solid var(--line)",
+                          paddingBottom: "0.45rem",
+                        }}
+                      >
+                        <span style={{ color: "var(--muted)" }}>{label}</span>
+                        <strong>{value}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         )}

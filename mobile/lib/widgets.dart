@@ -43,14 +43,15 @@ class Atmosphere extends StatelessWidget {
 }
 
 class SoftPanel extends StatelessWidget {
-  const SoftPanel({super.key, required this.child, this.padding, this.margin});
+  const SoftPanel({super.key, required this.child, this.padding, this.margin, this.onTap});
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final box = Container(
       width: double.infinity,
       margin: margin,
       padding: padding ?? const EdgeInsets.all(16),
@@ -67,6 +68,34 @@ class SoftPanel extends StatelessWidget {
         ],
       ),
       child: child,
+    );
+    if (onTap == null) return box;
+    return Padding(
+      padding: margin ?? EdgeInsets.zero,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: double.infinity,
+            padding: padding ?? const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Brand.paper.withValues(alpha: 0.94),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Brand.line),
+              boxShadow: [
+                BoxShadow(
+                  color: Brand.ink.withValues(alpha: 0.05),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      ),
     );
   }
 }
