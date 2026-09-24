@@ -1563,7 +1563,9 @@ export class DomainService {
         { weeklyReportId: saved.id },
       );
     }
-    return saved;
+    return (
+      (await this.weeklyReports.findOne({ where: { id: saved.id } })) ?? saved
+    );
   }
 
   /**
@@ -1624,7 +1626,9 @@ export class DomainService {
           groupId: input.groupId,
         },
       );
-      reports.push(saved);
+      const full =
+        (await this.weeklyReports.findOne({ where: { id: saved.id } })) ?? saved;
+      reports.push(full);
       await this.notify(
         entry.studentId,
         'weekly_report',
