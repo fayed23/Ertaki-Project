@@ -8,17 +8,26 @@ Clients (Flutter / admin browser) talk **only** to the API over HTTPS/JSON.
 - Docker Engine + Compose v2
 - A VPS with ports **80/443** open
 - DNS A/AAAA for your `DOMAIN` (or use `localhost` for HTTP-only smoke)
-- Copy env template: `cp .env.example .env` and set **strong** secrets
+- Copy env template: `cp .env.example .env` and set **strong** secrets (leave no placeholders)
 
 Required in `.env` for production:
 
 | Variable | Notes |
 |---|---|
-| `JWT_SECRET` | ≥32 chars; not a documented default |
-| `POSTGRES_PASSWORD` | not the demo `ertaki` |
+| `JWT_SECRET` | ≥32 chars; must not contain `change-me` / documented defaults |
+| `POSTGRES_PASSWORD` | not demo `ertaki` / placeholders |
 | `DOMAIN` | public hostname for Caddy TLS (or `localhost`) |
 | `NEXT_PUBLIC_API_URL` | browser-facing API URL, e.g. `https://your.domain/api` |
+| `CORS_ORIGINS` | comma-separated admin origins (required for browser admin in prod) |
 | `ACME_EMAIL` | Let's Encrypt contact when `DOMAIN` is public |
+
+Optional:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `SEED_ON_EMPTY` | `false` | demo accounts; also requires `ALLOW_DEMO_SEED=true` in production |
+| `JWT_EXPIRES_IN` | `12h` | access-token TTL |
+| `GPG_RECIPIENT` | — | encrypt backups when set |
 
 ## Production compose
 
@@ -27,20 +36,21 @@ Services: **postgres + api + admin + caddy**.
 - Nest listens inside the network only — **not** published on the host.
 - Caddy exposes `:80` / `:443` and reverse-proxies `/api*` → api, everything else → admin.
 - Compose healthchecks on postgres, api (`GET /api/health`), and admin.
+- `TYPEORM_SYNC` is forced off; schema comes from **real SQL migrations**.
 
 ## Local DB modes
 
 | Mode | How | Schema |
 |---|---|---|
-| **Local SQLite** | `cd api && npm run start:dev` | `synchronize: true` (dev only) |
-| **Local Postgres** | `docker compose -f docker-compose.dev.yml up -d` + host Nest with `DB_TYPE=postgres` | set `TYPEORM_SYNC=true` for experiments, or run migrations |
-| **Production Compose** | `docker compose up -d --build` | Postgres + **TypeORM migrations** (`RUN_MIGRATIONS=true`, `TYPEORM_SYNC=false`) |
+| **Local SQLite** | `cd api && npm run start:dev` | `synchronize: true` (dev/test only; never prod) |
+| **Local Postgres** | `docker compose -f docker-compose.dev.yml up -d` + host Nest | migrations preferred; `TYPEORM_SYNC=true` only for experiments |
+| **Production Compose** | `docker compose up -d --build` | Postgres + **TypeORM SQL migrations** (`RUN_MIGRATIONS=true`) |
 
 ## Boot production stack
 
 ```bash
 cp .env.example .env
-# edit JWT_SECRET, POSTGRES_PASSWORD, DOMAIN, NEXT_PUBLIC_API_URL, ACME_EMAIL
+# set JWT_SECRET, POSTGRES_PASSWORD, DOMAIN, NEXT_PUBLIC_API_URL, CORS_ORIGINS, ACME_EMAIL
 
 docker compose up -d --build
 curl -fsS https://$DOMAIN/api/health   # or http://localhost/api/health
@@ -48,50 +58,66 @@ curl -fsS https://$DOMAIN/api/health   # or http://localhost/api/health
 
 Health: `GET /api/health` (process + DB ping; expect `{"status":"ok","db":"up"}`).
 
-Seed accounts (if `SEED_ON_EMPTY=true` and DB empty): supervisor `0500000001` / `password123` — **change immediately** on a real VPS.
+Demo seed is **off** by default. To allow it on a throwaway VPS only:
+
+```bash
+SEED_ON_EMPTY=true ALLOW_DEMO_SEED=true
+```
+
+Seed phones use `password123` — rotate or disable immediately.
 
 ## Staging overlay
 
 ```bash
 cp .env.example .env.staging
-# separate JWT_SECRET + POSTGRES_PASSWORD + DOMAIN
+# separate JWT_SECRET + POSTGRES_PASSWORD + DOMAIN + CORS_ORIGINS
 
 docker compose -f docker-compose.yml -f docker-compose.staging.yml \
   --env-file .env.staging -p ertaki-staging up -d --build
 ```
 
-Uses separate volumes (`ertaki_pg_staging`) and project name so staging does not share prod data.
-
 ## Backups (3-2-1)
-
-Scripts live under `deploy/scripts/`:
 
 ```bash
 chmod +x deploy/scripts/*.sh
 ./deploy/scripts/backup-postgres.sh
-# → deploy/backups/ertaki-*.sql.gz (+ ertaki-latest.sql.gz symlink)
+# → deploy/backups/ertaki-*.sql.gz (+ latest symlink)
+# optional: GPG_RECIPIENT=you@example.com ./deploy/scripts/backup-postgres.sh
 ```
+
+Nightly cron example:
+
+```cron
+0 2 * * * cd /opt/ertaki && ./deploy/scripts/backup-postgres.sh >>deploy/backups/backup.log 2>&1
+```
+
+Retention defaults to **14 days** (`BACKUP_KEEP_DAYS`). Copy encrypted dumps off-box.
 
 Restore (destructive):
 
 ```bash
 ./deploy/scripts/restore-postgres.sh deploy/backups/ertaki-YYYYMMDDT….sql.gz
-docker compose restart api
 ```
 
-Encrypt and copy dumps **off-box** (object storage / another region). Practice restore on a clean machine periodically.
+Prove restore on a disposable Postgres:
+
+```bash
+./deploy/scripts/prove-restore.sh
+# writes deploy/backups/RESTORE-PROOF.md
+```
 
 ## Observability
 
-- API emits **structured JSON** HTTP logs (method, path, status, ms, userId) via `StructuredLoggingInterceptor`.
-- Point an uptime checker at `GET /api/health`.
-- Docker `restart: unless-stopped` + healthchecks cover basic process recovery.
+- API emits **structured JSON** HTTP logs via `StructuredLoggingInterceptor`.
+- Point an uptime checker (Uptime Kuma, etc.) at `GET /api/health`.
+- Docker `restart: unless-stopped` + healthchecks cover process recovery.
 
-## Auth hardening (shipped)
+## Auth hardening
 
-- Production refuses weak `JWT_SECRET` / demo DB password (`api/src/common/production-secrets.ts`).
-- Rate limits: login/register (10/min) and join-requests (20/min); global throttle otherwise.
-- JWT + bcrypt remain the system of record (no Auth0/Firebase).
+- Production refuses weak JWT / demo DB passwords and forbids `TYPEORM_SYNC=true`.
+- CORS deny-by-default in production unless `CORS_ORIGINS` is set.
+- Rate limits: login/register (10/min) and join-requests (20/min).
+- JWT access TTL defaults to **12h** (`JWT_EXPIRES_IN`).
 
 ## Mobile / APK
 
@@ -104,19 +130,17 @@ Encrypt and copy dumps **off-box** (object storage / another region). Practice r
 cd mobile
 flutter build apk --release --flavor lan \
   --dart-define=API_BASE_URL=http://10.0.2.2:43124/api
-# or --flavor prod --dart-define=API_BASE_URL=https://api.example.com/api
 ```
 
-- Tokens: **flutter_secure_storage** on device (SharedPreferences on web) — see `mobile/lib/token_store.dart`.
-- Sideload artifact: `releases/ertaki-android-release.apk` (lan-flavor, debug-signed by default).
-- Store signing: copy `mobile/android/key.properties.example` → `mobile/android/key.properties` (gitignored) with your upload keystore.
+- Tokens: **flutter_secure_storage** on device.
+- Sideload artifact: `releases/ertaki-android-release.apk`.
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`): API lint/build/e2e, admin build, `flutter analyze` + tests.
+GitHub Actions: API lint/build/e2e (peer invisibility, immutability, policies, attendance/weekly), admin build, Flutter analyze + tests.
 
 ## Related
 
-- Portable production curriculum: `docs/ertaki-portable-production-guide.md`
-- Gap analysis (P0–P2 applied): `docs/structure-gap-analysis.md`
+- Gap analysis: `docs/structure-gap-analysis.md`
+- Ship review: `docs/p0-p2-ship-review.md`
 - Product map: `workflow.md`

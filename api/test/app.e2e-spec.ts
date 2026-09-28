@@ -12,7 +12,9 @@ describe('Ertaki critical rules (e2e)', () => {
   let app: INestApplication;
   let studentToken: string;
   let teacherToken: string;
+  let supervisorToken: string;
   let peerToken: string | null = null;
+  let studentId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -31,20 +33,23 @@ describe('Ertaki critical rules (e2e)', () => {
         .post('/api/auth/login')
         .send({ phone, password: 'password123' });
       expect(res.status).toBeLessThan(400);
-      return res.body.accessToken as string;
+      return res.body as { accessToken: string; user: { id: string } };
     };
 
-    studentToken = await login('0500000003');
-    teacherToken = await login('0500000002');
+    const student = await login('0500000003');
+    studentToken = student.accessToken;
+    studentId = student.user.id;
+    teacherToken = (await login('0500000002')).accessToken;
+    supervisorToken = (await login('0500000001')).accessToken;
 
     const peer = await request(app.getHttpServer())
       .post('/api/auth/login')
       .send({ phone: '0500000004', password: 'password123' });
     if (peer.status < 400) peerToken = peer.body.accessToken;
-  });
+  }, 30000);
 
   afterAll(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it('GET /api/health returns ok with db up', async () => {
@@ -83,7 +88,7 @@ describe('Ertaki critical rules (e2e)', () => {
   });
 
   it('student cannot list peer daily reports', async () => {
-    if (!peerToken) return;
+    expect(peerToken).toBeTruthy();
     const me = await request(app.getHttpServer())
       .get('/api/auth/me')
       .set('Authorization', `Bearer ${peerToken}`);
@@ -92,14 +97,7 @@ describe('Ertaki critical rules (e2e)', () => {
     const res = await request(app.getHttpServer())
       .get(`/api/daily-reports?studentId=${peerId}`)
       .set('Authorization', `Bearer ${studentToken}`);
-    if (res.status < 400) {
-      const rows = Array.isArray(res.body) ? res.body : [];
-      for (const row of rows) {
-        expect(row.studentId).not.toBe(peerId);
-      }
-    } else {
-      expect(res.status).toBeGreaterThanOrEqual(400);
-    }
+    expect(res.status).toBeGreaterThanOrEqual(400);
   });
 
   it('teacher can see student reports for their group', async () => {
@@ -108,5 +106,77 @@ describe('Ertaki critical rules (e2e)', () => {
       .set('Authorization', `Bearer ${teacherToken}`);
     expect(res.status).toBeLessThan(400);
     expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
+    expect(
+      res.body.some((r: { studentId: string }) => r.studentId === studentId),
+    ).toBe(true);
+  });
+
+  it('infraction policies require supervisor and persist threshold', async () => {
+    const denied = await request(app.getHttpServer())
+      .post('/api/infraction-policies')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({
+        infractionType: 'missed_daily_report',
+        thresholdCount: 3,
+        action: 'warn',
+        actionLabel: 'تنبيه',
+      });
+    expect(denied.status).toBeGreaterThanOrEqual(400);
+
+    const ok = await request(app.getHttpServer())
+      .post('/api/infraction-policies')
+      .set('Authorization', `Bearer ${supervisorToken}`)
+      .send({
+        infractionType: 'missed_daily_report',
+        thresholdCount: 3,
+        action: 'warn',
+        actionLabel: 'تنبيه اختبار',
+        enabled: true,
+      });
+    expect([200, 201]).toContain(ok.status);
+    expect(ok.body.thresholdCount).toBe(3);
+
+    const list = await request(app.getHttpServer())
+      .get('/api/infraction-policies')
+      .set('Authorization', `Bearer ${supervisorToken}`);
+    expect(list.status).toBe(200);
+    expect(
+      (list.body as Array<{ actionLabel?: string }>).some(
+        (p) => p.actionLabel === 'تنبيه اختبار',
+      ),
+    ).toBe(true);
+  });
+
+  it('teacher records attendance and generates weekly report for student', async () => {
+    const groups = await request(app.getHttpServer())
+      .get('/api/groups')
+      .set('Authorization', `Bearer ${teacherToken}`);
+    expect(groups.status).toBeLessThan(400);
+    const mine = (groups.body as Array<{ id: string }>)[0];
+    expect(mine).toBeTruthy();
+
+    const sessionDate = '2099-02-01';
+    const att = await request(app.getHttpServer())
+      .post('/api/attendance')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({
+        studentId,
+        groupId: mine!.id,
+        sessionDate,
+        status: 'present',
+      });
+    expect([200, 201]).toContain(att.status);
+
+    const weekly = await request(app.getHttpServer())
+      .post('/api/weekly-reports/generate')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({
+        studentId,
+        weekStartDate: '2099-01-26',
+        weekEndDate: '2099-02-01',
+      });
+    expect([200, 201]).toContain(weekly.status);
+    expect(weekly.body.studentId).toBe(studentId);
   });
 });

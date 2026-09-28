@@ -18,12 +18,10 @@ ENV PORT=43123
 ENV HOSTNAME=0.0.0.0
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=build /app/package.json /app/package-lock.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
-COPY --from=build /app/next.config.ts ./
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
 EXPOSE 43123
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
   CMD curl -fsS http://127.0.0.1:43123/ || exit 1
-CMD ["npm", "run", "start", "--", "-H", "0.0.0.0", "-p", "43123"]
+CMD ["node", "server.js"]

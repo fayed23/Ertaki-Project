@@ -13,8 +13,11 @@ import { InitialSchema1730000000000 } from './migrations/1730000000000-InitialSc
 
 const useSqlite =
   (process.env.DB_TYPE || 'sqlite').toLowerCase() !== 'postgres';
-const syncSqlite = useSqlite;
-const syncPostgres = process.env.TYPEORM_SYNC === 'true';
+const isProd = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+// SQLite local-only sync. Postgres never syncs in production; opt-in via TYPEORM_SYNC for experiments.
+const syncSqlite = useSqlite && !isProd;
+const syncPostgres =
+  !useSqlite && !isProd && process.env.TYPEORM_SYNC === 'true';
 
 @Module({
   imports: [

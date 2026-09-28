@@ -38,8 +38,18 @@ export class SeedService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    if (process.env.SEED_ON_EMPTY === 'false') {
+    const isProd = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+    const seedFlag = (
+      process.env.SEED_ON_EMPTY || (isProd ? 'false' : 'true')
+    ).toLowerCase();
+    if (seedFlag === 'false') {
       this.logger.log('SEED_ON_EMPTY=false — تخطي البذر');
+      return;
+    }
+    if (isProd && process.env.ALLOW_DEMO_SEED !== 'true') {
+      this.logger.warn(
+        'Production seed skipped — set ALLOW_DEMO_SEED=true to allow demo accounts',
+      );
       return;
     }
     const count = await this.users.count();

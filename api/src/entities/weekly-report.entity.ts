@@ -6,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
+import { timestampColumnType } from '../common/column-types';
 import { User } from './user.entity';
 import { Group } from './group.entity';
 
@@ -54,10 +55,10 @@ export class WeeklyReport {
   @Column({ type: 'simple-json', nullable: true })
   summaryJson: Record<string, unknown> | null;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: timestampColumnType, nullable: true })
   studentConfirmedAt: Date | null;
 
-  @Column({ type: 'datetime' })
+  @Column({ type: timestampColumnType })
   generatedAt: Date;
 
   @CreateDateColumn()

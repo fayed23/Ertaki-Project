@@ -1,5 +1,5 @@
 /**
- * Production secret contract.
+ * Production secret / env contract.
  * Call before NestFactory.create when NODE_ENV=production.
  */
 export function assertProductionSecrets() {
@@ -20,22 +20,58 @@ export function assertProductionSecrets() {
     );
   }
 
+  if (process.env.TYPEORM_SYNC === 'true') {
+    throw new Error(
+      'Production forbids TYPEORM_SYNC=true. Use TypeORM migrations (RUN_MIGRATIONS=true).',
+    );
+  }
+
   const dbType = (process.env.DB_TYPE || 'sqlite').toLowerCase();
   if (dbType === 'postgres') {
     const url = process.env.DATABASE_URL || '';
     if (!url) {
       throw new Error('Production Postgres requires DATABASE_URL.');
     }
-    if (
-      /:ertaki@|:password@|:changeme@/i.test(url) &&
-      !process.env.ALLOW_WEAK_DB_PASSWORD
-    ) {
-      // Still allow if password is long enough elsewhere; block classic compose default.
-      if (url.includes(':ertaki@') || url.includes('password=ertaki')) {
-        throw new Error(
-          'Production DATABASE_URL must not use the demo password "ertaki". Set POSTGRES_PASSWORD.',
-        );
-      }
+    const weakDb =
+      /:ertaki@/i.test(url) ||
+      /password=ertaki coi/i.test(url) ||
+      /:password@/i.test(url) ||
+      /:changeme@/i.test(url) ||
+      /change-me/i.test(url);
+    if (weakDb && !process.env.ALLOW_WEAK_DB_PASSWORD) {
+      throw new Error(
+        'Production DATABASE_URL must not use demo/placeholder passwords. Set POSTGRES_PASSWORD.',
+      );
     }
   }
+
+  const seed = (process.env.SEED_ON_EMPTY || 'false').toLowerCase();
+  if (seed === 'true' && process.env.ALLOW_DEMO_SEED !== 'true') {
+    throw new Error(
+      'Production seeding requires ALLOW_DEMO_SEED=true (demo accounts use password123). Prefer SEED_ON_EMPTY=false.',
+    );
+  }
+}
+
+/** Parse CORS_ORIGINS (comma-separated). Empty → reflect request origin in non-prod only. */
+export function resolveCorsOrigin():
+  | boolean
+  | string
+  | string[]
+  | ((
+      origin: string | undefined,
+      cb: (err: Error | null, allow?: boolean) => void,
+    ) => void) {
+  const raw = (process.env.CORS_ORIGINS || '').trim();
+  const isProd = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+  if (!raw) {
+    // Production default: deny browser cross-origin unless CORS_ORIGINS is set.
+    // Mobile apps are not subject to CORS; admin must list its origin(s).
+    return isProd ? false : true;
+  }
+  if (raw === '*') return true;
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }

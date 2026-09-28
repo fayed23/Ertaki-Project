@@ -25,7 +25,10 @@ function jwtSecret() {
     JwtModule.registerAsync({
       useFactory: () => ({
         secret: jwtSecret(),
-        signOptions: { expiresIn: '7d' },
+        // Shorter access TTL for VPS; clients re-login when expired.
+        signOptions: {
+          expiresIn: process.env.JWT_EXPIRES_IN || '12h',
+        },
       }),
     }),
   ],

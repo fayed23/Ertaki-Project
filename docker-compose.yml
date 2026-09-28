@@ -38,7 +38,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       TYPEORM_SYNC: "false"
       RUN_MIGRATIONS: "true"
-      SEED_ON_EMPTY: ${SEED_ON_EMPTY:-true}
+      SEED_ON_EMPTY: ${SEED_ON_EMPTY:-false}
+      ALLOW_DEMO_SEED: ${ALLOW_DEMO_SEED:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:

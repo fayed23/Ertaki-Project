@@ -4,6 +4,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { timestampColumnType } from '../common/column-types';
 
 @Entity('notification_stubs')
 export class NotificationStub {
@@ -28,7 +29,7 @@ export class NotificationStub {
   @Column({ default: false })
   delivered: boolean;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: timestampColumnType, nullable: true })
   readAt: Date | null;
 
   @CreateDateColumn()

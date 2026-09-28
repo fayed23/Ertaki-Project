@@ -92,3 +92,16 @@ CI on `main` went **red immediately** after the ship because the new workflow en
 Ship **unlocked** `docker compose up` behind Caddy with healthchecks, rate limits, secure mobile tokens, and a runbook — that is real P0 progress. It **over-claimed** migrations, domain modularity, and CI readiness. Do not schedule a second VPS “production cutover” until real migrations and green CI are boringly true.
 
 **APK:** no rebuild in the CI follow-up (lint/analyzer/secret-gate only; no product UX change).
+
+---
+
+## Follow-up completion (this delivery)
+
+Must-fixes and nice-to-haves from this review were implemented on `main`:
+
+- Real SQL `InitialSchema` migration (no synchronize bootstrap); prod forbids `TYPEORM_SYNC`
+- `SEED_ON_EMPTY` default false + `ALLOW_DEMO_SEED` gate; CORS allow-list; JWT TTL 12h
+- Backup retention + optional GPG; `prove-restore.sh` evidence in `deploy/backups/RESTORE-PROOF.md`
+- Domain **services** split (`DomainContext` + groups/reports/attendance/policies/notifications/dashboards)
+- Stronger e2e; peer daily-report probe returns 403; admin joins panel + App Router routes; Next standalone image
+- APK **1.0.15+15**

@@ -5,6 +5,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { timestampColumnType } from '../common/column-types';
 import { Group } from './group.entity';
 import { User } from './user.entity';
 
@@ -25,10 +26,10 @@ export class GroupMembership {
   @Column()
   groupId: string;
 
-  @Column({ type: 'datetime' })
+  @Column({ type: timestampColumnType })
   joinedAt: Date;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: timestampColumnType, nullable: true })
   leftAt: Date | null;
 
   @Column({ type: 'varchar', nullable: true })

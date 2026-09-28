@@ -1,28 +1,28 @@
 # Ertaki — Structure Gap Analysis
 
-## Applied (P0–P2) — 2026-09-28
+## Applied (P0–P2) — 2026-09-28 (completed follow-up)
 
-All P0 / P1 / P2 items from this analysis were implemented on `main` for a VPS-deployable stack.
+All P0 / P1 / P2 items are implemented on `main`, including review must-fixes:
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 1 | Dockerfiles API+admin; Compose postgres+api+admin(+caddy); `.env.example` | **Applied** | `api/Dockerfile`, `admin/Dockerfile`, `docker-compose.yml`, `.env.example` |
-| 2 | Caddy TLS reverse proxy; Nest not public | **Applied** | `deploy/Caddyfile`, compose `caddy` service (no api host ports) |
-| 3 | TypeORM migrations for prod; SQLite+sync local | **Applied** | `api/src/migrations/`, `api/src/data-source.ts`, `docs/vps-deploy.md` |
-| 4 | `GET /api/health` + Compose healthchecks | **Applied** | `api/src/health/`, compose healthchecks |
-| 5 | Strong JWT/DB secrets in prod; rate-limit login/join | **Applied** | `production-secrets.ts`, `@nestjs/throttler` on auth + join |
-| 6 | Backup script + restore notes | **Applied** | `deploy/scripts/backup-postgres.sh`, `restore-postgres.sh` |
-| 7 | Multi-env / staging overlay | **Applied** | `docker-compose.staging.yml`, `docker-compose.dev.yml` |
-| 8 | Structured logging + health uptime | **Applied** | `StructuredLoggingInterceptor`, health endpoint |
-| 9 | CI GitHub Actions | **Applied** | `.github/workflows/ci.yml` |
-| 10 | Flutter secure storage; HTTPS flavor | **Applied** | `token_store.dart`, `lan`/`prod` flavors |
-| 11 | Sideload APK + keystore wiring | **Applied** | `releases/`, `key.properties.example`, signingConfigs |
-| 12 | Split Nest domain controllers | **Applied** | `groups/reports/attendance/policies/notifications/dashboards.controller.ts` |
-| 13 | Expand audit on sensitive ops | **Applied** | policy/quota/excuse/note/deadline/content/group.review |
-| 14 | Admin route/file split | **Applied** | `admin/src/lib/*`, `components/ClockTimeField.tsx` |
-| 15 | Tests for peer invisibility / immutability | **Applied** | `api/test/app.e2e-spec.ts` |
+| 1 | Dockerfiles + Compose + Caddy + `.env.example` | **Applied** | `docker-compose.yml`, Dockerfiles |
+| 2 | Caddy TLS; Nest not public | **Applied** | `deploy/Caddyfile` |
+| 3 | **Real** TypeORM SQL migrations (no synchronize bootstrap) | **Applied** | `api/src/migrations/1730000000000-InitialSchema.ts` |
+| 4 | Health + healthchecks | **Applied** | `api/src/health/` |
+| 5 | Strong secrets; seed gated; CORS allow-list; JWT 12h | **Applied** | `production-secrets.ts`, compose env |
+| 6 | Backup + retention + optional GPG + restore proof | **Applied** | `deploy/scripts/*`, `RESTORE-PROOF.md` |
+| 7 | Staging overlay | **Applied** | `docker-compose.staging.yml` |
+| 8 | Structured logging + uptime notes | **Applied** | interceptor + runbook |
+| 9 | CI green (lint/build/e2e/analyze) | **Applied** | `.github/workflows/ci.yml` |
+| 10 | Secure storage + lan/prod flavors | **Applied** | `token_store.dart`, flavors |
+| 11 | Sideload APK + keystore wiring | **Applied** | `releases/`, `key.properties.example` |
+| 12 | Domain **service** split (not only controllers) | **Applied** | `domain-context` + groups/reports/attendance/policies/notifications/dashboards services |
+| 13 | Audit on sensitive ops (incl. daily submit / join / attendance) | **Applied** | `auditLog` calls |
+| 14 | Admin routes + joins panel + Next standalone image | **Applied** | `admin/src/app/(console)/*`, standalone Dockerfile |
+| 15 | Stronger e2e (peer 403, policies, attendance/weekly) | **Applied** | `api/test/app.e2e-spec.ts` |
 
-APK: **1.0.14+14** · SHA1 `95492d27f8b501c9aa97070ecf9ead55372c67ad` · Release `v1.0.14-apk` · Runbook `docs/vps-deploy.md`.
+Runbook: `docs/vps-deploy.md`. Critical review: `docs/p0-p2-ship-review.md`.
 
 ---
 

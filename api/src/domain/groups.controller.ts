@@ -37,8 +37,8 @@ export class GroupsController {
     return this.domain.listGroups(user);
   }
   @Get('groups/:id')
-  async getGroup(@Param('id') id: string) {
-    return this.domain.enrichGroup(await this.domain.getGroup(id));
+  async getGroup(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.domain.getGroupForActor(user, id);
   }
   @Get('groups/:id/brief')
   @Roles(UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)

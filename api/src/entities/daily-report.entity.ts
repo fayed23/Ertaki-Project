@@ -6,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
+import { timestampColumnType } from '../common/column-types';
 import { User } from './user.entity';
 
 @Entity('daily_reports')
@@ -65,7 +66,7 @@ export class DailyReport {
   @Column({ default: false })
   readTafsir: boolean;
 
-  @Column({ type: 'datetime' })
+  @Column({ type: timestampColumnType })
   submittedAt: Date;
 
   @CreateDateColumn()
