@@ -20,15 +20,21 @@ Required in `.env` for production:
 | `NEXT_PUBLIC_API_URL` | browser-facing API URL, e.g. `https://your.domain/api` |
 | `ACME_EMAIL` | Let's Encrypt contact when `DOMAIN` is public |
 
+## Production compose
+
+Services: **postgres + api + admin + caddy**.
+
+- Nest listens inside the network only — **not** published on the host.
+- Caddy exposes `:80` / `:443` and reverse-proxies `/api*` → api, everything else → admin.
+- Compose healthchecks on postgres, api (`GET /api/health`), and admin.
+
 ## Local DB modes
 
 | Mode | How | Schema |
 |---|---|---|
 | **Local SQLite** | `cd api && npm run start:dev` | `synchronize: true` (dev only) |
-| **Local Postgres** | `docker compose -f docker-compose.dev.yml up -d` + `DB_TYPE=postgres` | set `TYPEORM_SYNC=true` once for experiments, or run migrations |
+| **Local Postgres** | `docker compose -f docker-compose.dev.yml up -d` + host Nest with `DB_TYPE=postgres` | set `TYPEORM_SYNC=true` for experiments, or run migrations |
 | **Production Compose** | `docker compose up -d --build` | Postgres + **TypeORM migrations** (`RUN_MIGRATIONS=true`, `TYPEORM_SYNC=false`) |
-
-Nest is **not** published on the host in the production compose file — only Caddy (:80/:443) is.
 
 ## Boot production stack
 
@@ -40,12 +46,11 @@ docker compose up -d --build
 curl -fsS https://$DOMAIN/api/health   # or http://localhost/api/health
 ```
 
-Services: `postgres` → `api` → `admin` → `caddy`.  
-Health: `GET /api/health` (process + DB ping). Compose healthchecks restart unhealthy containers.
+Health: `GET /api/health` (process + DB ping; expect `{"status":"ok","db":"up"}`).
 
 Seed accounts (if `SEED_ON_EMPTY=true` and DB empty): supervisor `0500000001` / `password123` — **change immediately** on a real VPS.
 
-## Staging twin
+## Staging overlay
 
 ```bash
 cp .env.example .env.staging
@@ -55,7 +60,11 @@ docker compose -f docker-compose.yml -f docker-compose.staging.yml \
   --env-file .env.staging -p ertaki-staging up -d --build
 ```
 
+Uses separate volumes (`ertaki_pg_staging`) and project name so staging does not share prod data.
+
 ## Backups (3-2-1)
+
+Scripts live under `deploy/scripts/`:
 
 ```bash
 chmod +x deploy/scripts/*.sh
@@ -70,17 +79,17 @@ Restore (destructive):
 docker compose restart api
 ```
 
-Encrypt and copy dumps **off-box** (object storage / another region). Practice restore on a clean machine quarterly.
+Encrypt and copy dumps **off-box** (object storage / another region). Practice restore on a clean machine periodically.
 
 ## Observability
 
-- API emits **structured JSON** request logs (method, path, status, ms, userId).
-- Point an uptime checker at `GET /api/health` (expect `{"status":"ok","db":"up"}`).
+- API emits **structured JSON** HTTP logs (method, path, status, ms, userId) via `StructuredLoggingInterceptor`.
+- Point an uptime checker at `GET /api/health`.
 - Docker `restart: unless-stopped` + healthchecks cover basic process recovery.
 
 ## Auth hardening (shipped)
 
-- Production refuses weak `JWT_SECRET` / demo DB password.
+- Production refuses weak `JWT_SECRET` / demo DB password (`api/src/common/production-secrets.ts`).
 - Rate limits: login/register (10/min) and join-requests (20/min); global throttle otherwise.
 - JWT + bcrypt remain the system of record (no Auth0/Firebase).
 
@@ -95,12 +104,12 @@ Encrypt and copy dumps **off-box** (object storage / another region). Practice r
 cd mobile
 flutter build apk --release --flavor lan \
   --dart-define=API_BASE_URL=http://10.0.2.2:43124/api
-# or prod + https://api.example.com/api
+# or --flavor prod --dart-define=API_BASE_URL=https://api.example.com/api
 ```
 
-Tokens use **flutter_secure_storage** on device (SharedPreferences on web).  
-Sideload artifact: `releases/ertaki-android-release.apk`.  
-Store signing: copy `mobile/android/key.properties.example` → `key.properties` (gitignored) with your upload keystore.
+- Tokens: **flutter_secure_storage** on device (SharedPreferences on web) — see `mobile/lib/token_store.dart`.
+- Sideload artifact: `releases/ertaki-android-release.apk` (lan-flavor, debug-signed by default).
+- Store signing: copy `mobile/android/key.properties.example` → `mobile/android/key.properties` (gitignored) with your upload keystore.
 
 ## CI
 
