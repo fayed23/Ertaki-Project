@@ -1,9 +1,14 @@
 # Production-oriented stack: postgres + api + admin + caddy.
 # Local SQLite path remains: `cd api && npm run start:dev` (no compose required).
 #
-# Usage:
-#   cp .env.example .env   # set strong JWT_SECRET + POSTGRES_PASSWORD
+# VPS / production:
+#   cp .env.example .env   # set strong JWT_SECRET + POSTGRES_PASSWORD + DOMAIN
 #   docker compose up -d --build
+#   → uses deploy/Caddyfile (HTTPS via Let's Encrypt when DOMAIN is public)
+#
+# Home Wi‑Fi pilot ONLY (never on a public VPS):
+#   docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build
+#   → swaps in Caddyfile.lan (HTTP catch‑all, no auto HTTPS, extra :8080)
 #
 # Nest is NOT published on the host in this file — only Caddy (:80/:443).
 

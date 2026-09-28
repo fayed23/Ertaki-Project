@@ -1,5 +1,9 @@
 # Home Wi‑Fi / Docker Desktop pilot overlay.
-# Usage (from project root):
+#
+# FORBIDDEN on a public VPS — disables automatic HTTPS and opens catch‑all HTTP.
+# VPS command is only:  docker compose up -d --build
+#
+# Home usage (from project root):
 #   docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build
 #
 # - Caddyfile.lan listens on :80 for ANY Host (localhost, 127.0.0.1, LAN IP)

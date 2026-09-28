@@ -15,6 +15,24 @@ By the end you will have:
 
 **On a real VPS:** use only `docker compose up -d --build` (production `deploy/Caddyfile` + HTTPS). Do **not** pass `-f docker-compose.lan.yml` on the VPS — that overlay turns off automatic HTTPS and is for home Wi‑Fi only.
 
+### Do home/LAN fixes break VPS?
+
+**No.** LAN files are opt‑in overlays. The VPS command never loads them.
+
+| Change | On VPS (`docker compose up`) | Risk |
+|---|---|---|
+| `deploy/Caddyfile.lan` + `docker-compose.lan.yml` | **Not used** | None unless you add `-f docker-compose.lan.yml` (don’t) |
+| Windows firewall `.bat` | Irrelevant on Linux VPS | None |
+| `NEXT_PUBLIC_API_URL=/api` | **Correct** for admin+API behind the same domain | Improves reliability; phone still uses `https://YOUR-DOMAIN/api` |
+| Production `deploy/Caddyfile` | Still HTTPS + `DOMAIN` | Unchanged behavior |
+
+Before first boot on a VPS you can self-check:
+
+```bash
+chmod +x deploy/scripts/*.sh
+./deploy/scripts/check-vps-safe.sh
+```
+
 ---
 
 ## Table of contents
@@ -439,6 +457,13 @@ Many providers have a separate “Firewall / Security Group”. Allow inbound:
 ---
 
 ## 12) Start Ertaki
+
+Optional safety check (confirms you are **not** on the LAN overlay):
+
+```bash
+chmod +x deploy/scripts/*.sh
+./deploy/scripts/check-vps-safe.sh
+```
 
 ```bash
 cd /opt/ertaki
