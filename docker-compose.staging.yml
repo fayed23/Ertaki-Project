@@ -18,9 +18,9 @@ services:
   admin:
     build:
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://staging.example.com/api}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://staging.example.com/api}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
 
   caddy:
     environment:

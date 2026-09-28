@@ -4,7 +4,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 FROM deps AS build
-ARG NEXT_PUBLIC_API_URL=http://localhost/api
+ARG NEXT_PUBLIC_API_URL=/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY next.config.ts tsconfig.json postcss.config.mjs eslint.config.mjs ./
 COPY public ./public

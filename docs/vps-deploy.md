@@ -340,20 +340,21 @@ Database name. Leave as `ertaki` unless you know you need another.
 - **What:** contact email for Let’s Encrypt certificate notices.
 - Use a real inbox you check. Not shown to app users.
 
-#### `NEXT_PUBLIC_API_URL=https://YOUR-DOMAIN/api`
+#### `NEXT_PUBLIC_API_URL=/api` (recommended behind Caddy)
 
-- **What:** the API URL baked into the **admin website** (browser calls this).
-- Must be the public HTTPS URL ending in `/api`.
-- Example: `https://ertaki.example.com/api`
-- Wrong value → admin page loads but login/API calls fail.
+- **What:** the API path the **admin website** (browser JavaScript) calls.
+- **Best value on LAN and on VPS when Caddy serves admin + API together:** `/api`  
+  Same origin as the page → no Host/port mismatch → avoids browser **Failed to fetch**.
+- Absolute URL only if you deliberately open admin on a different host, e.g. `https://ertaki.example.com/api`.
+- This value is baked at **Docker build** time — change it → `docker compose up -d --build`.
 
 #### `CORS_ORIGINS=https://YOUR-DOMAIN`
 
-- **What:** list of browser origins allowed to call the API.
-- For one admin on the same domain: `https://YOUR-DOMAIN`
-- Multiple values: comma-separated, **no spaces** (or be careful with spaces).
-- Example: `https://ertaki.example.com`
-- If empty in production, browser admin calls are blocked.
+- **What:** list of browser origins allowed to call the API when the page origin ≠ API origin.
+- With `NEXT_PUBLIC_API_URL=/api` (same origin), admin login does not need CORS; still set your public site origin for safety: `https://YOUR-DOMAIN`
+- Multiple values: comma-separated.
+- Example LAN: `http://192.168.1.23,http://192.168.1.23:8080,http://localhost,http://127.0.0.1`
+- If empty in production, **cross-origin** browser calls are blocked.
 
 #### `JWT_EXPIRES_IN=12h`
 
@@ -391,7 +392,7 @@ POSTGRES_DB=ertaki
 DOMAIN=ertaki.example.com
 ACME_EMAIL=you@example.com
 
-NEXT_PUBLIC_API_URL=https://ertaki.example.com/api
+NEXT_PUBLIC_API_URL=/api
 CORS_ORIGINS=https://ertaki.example.com
 
 JWT_EXPIRES_IN=12h
@@ -636,8 +637,8 @@ docker compose down -v
 
 ### Admin page loads but login fails
 
-- `NEXT_PUBLIC_API_URL` must be `https://YOUR-DOMAIN/api`
-- `CORS_ORIGINS` must include `https://YOUR-DOMAIN`
+- **Failed to fetch:** set `NEXT_PUBLIC_API_URL=/api` and rebuild (`docker compose up -d --build`). Absolute `https://YOUR-DOMAIN/api` also works if it exactly matches the browser host.
+- `CORS_ORIGINS` must include `https://YOUR-DOMAIN` when using a cross-origin absolute API URL.
 - After changing those, rebuild admin: `docker compose up -d --build`
 - API logs: `docker compose logs api --tail 80`
 

@@ -117,8 +117,9 @@ POSTGRES_DB=ertaki
 DOMAIN=YOUR-PC-IP
 ACME_EMAIL=practice@example.com
 
-NEXT_PUBLIC_API_URL=http://YOUR-PC-IP/api
-CORS_ORIGINS=http://YOUR-PC-IP,http://localhost,http://127.0.0.1
+# Same-origin through Caddy — works for localhost, 127.0.0.1, LAN IP, and :8080
+NEXT_PUBLIC_API_URL=/api
+CORS_ORIGINS=http://YOUR-PC-IP,http://YOUR-PC-IP:8080,http://localhost,http://localhost:8080,http://127.0.0.1,http://127.0.0.1:8080
 
 JWT_EXPIRES_IN=12h
 
@@ -130,9 +131,11 @@ Example if your IP is `192.168.1.23`:
 
 ```env
 DOMAIN=192.168.1.23
-NEXT_PUBLIC_API_URL=http://192.168.1.23/api
-CORS_ORIGINS=http://192.168.1.23,http://localhost,http://127.0.0.1
+NEXT_PUBLIC_API_URL=/api
+CORS_ORIGINS=http://192.168.1.23,http://192.168.1.23:8080,http://localhost,http://localhost:8080,http://127.0.0.1,http://127.0.0.1:8080
 ```
+
+**Important:** `NEXT_PUBLIC_API_URL` is baked into the admin image at **build** time. After changing it you must recreate with `--build`. Using `/api` avoids “Failed to fetch” when you open `localhost` but the image was built for a LAN IP (or the reverse).
 
 6. Save the file.
 
@@ -452,14 +455,21 @@ Docker Desktop → **Troubleshoot** → **Restart Docker Desktop**. Then repeat 
 
 ### Admin page loads but login fails
 
-- Confirm seeding: in `.env`, `SEED_ON_EMPTY=true` and `ALLOW_DEMO_SEED=true`, then:
+- Browser shows **Failed to fetch**: admin JS is calling the wrong API host (often an absolute LAN IP while you opened `localhost`, or the reverse). Fix:
+
+```env
+NEXT_PUBLIC_API_URL=/api
+```
+
+Then rebuild (required — this value is compile-time):
 
 ```bat
-docker compose -f docker-compose.yml -f docker-compose.lan.yml down
 docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build
 ```
 
-- `NEXT_PUBLIC_API_URL` and `CORS_ORIGINS` must use the same host/port you open in the browser (include `:8080` if you use that port).
+- Confirm seeding: in `.env`, `SEED_ON_EMPTY=true` and `ALLOW_DEMO_SEED=true`, then rebuild as above.
+- Optional: keep `CORS_ORIGINS` listing localhost + LAN IP + `:8080` variants if you ever use an absolute API URL.
+- Prove API: open `http://127.0.0.1/api/health` (or `:8080`) in the same browser.
 
 ### `docker compose` command not found
 
@@ -467,11 +477,11 @@ docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build
 
 ### Port 80 already in use
 
-Use the LAN overlay’s **8080** URLs everywhere (browser, `.env` `NEXT_PUBLIC_API_URL` / `CORS_ORIGINS`, phone API field), e.g.:
+Use the LAN overlay’s **8080** URLs in the browser and phone, e.g. `http://192.168.1.23:8080/`. Keep:
 
 ```env
-NEXT_PUBLIC_API_URL=http://192.168.1.23:8080/api
-CORS_ORIGINS=http://192.168.1.23:8080,http://localhost:8080,http://127.0.0.1:8080
+NEXT_PUBLIC_API_URL=/api
+CORS_ORIGINS=http://192.168.1.23,http://192.168.1.23:8080,http://localhost,http://localhost:8080,http://127.0.0.1,http://127.0.0.1:8080
 ```
 
 Then recreate:

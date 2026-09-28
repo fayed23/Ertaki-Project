@@ -61,11 +61,11 @@ services:
     build:
       context: ./admin
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
     depends_on:
       api:
         condition: service_healthy
