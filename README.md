@@ -188,7 +188,7 @@ docker compose up -d --build
 curl -fsS https://$DOMAIN/api/health
 ```
 
-Runbook: [`docs/vps-deploy.md`](./docs/vps-deploy.md)  
+Beginner runbook (buy domain/VPS, DNS, JWT, passwords, HTTPS, phone): [`docs/vps-deploy.md`](./docs/vps-deploy.md)  
 Staging overlay: `docker-compose.staging.yml` · backups: `deploy/scripts/backup-postgres.sh`
 
 ---
