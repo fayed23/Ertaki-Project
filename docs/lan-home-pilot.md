@@ -4,6 +4,17 @@ This guide is for learning. You will run the **same Docker setup** a small VPS w
 
 You do **not** need to buy a server yet.
 
+### Critical: “has internet” is not enough
+
+| Situation | Can phone / other PC reach your Docker? |
+|---|---|
+| Phone + PC on the **same home Wi‑Fi** (same SSID), firewall open | **Yes** (this guide) |
+| Phone on **mobile data** (4G/5G) or another house’s Wi‑Fi | **No** — your PC’s `192.168.x.x` address is private and invisible from the public internet |
+| Phone on Wi‑Fi, PC on cable, but **different networks** / guest Wi‑Fi / AP isolation | **No** until both are on the same LAN without client isolation |
+| You already bought a **VPS** with a public domain | Use [`vps-deploy.md`](./vps-deploy.md) instead |
+
+The Caddy LAN fix (catch‑all Host + port 8080) only helps devices that can already route to your PC on the LAN. It does **not** publish your home PC to the whole internet.
+
 ---
 
 ## What you will have at the end
@@ -116,13 +127,43 @@ This turns on **demo accounts** so you can log in immediately. That is OK for ho
 
 ---
 
-## 5) Allow Windows Firewall (so the phone can reach the PC)
+## 5) Allow Windows Firewall (required for phone + other PC)
 
-1. Windows search → **Windows Defender Firewall**.
-2. Click **Allow an app or feature through Windows Firewall**.
-3. Or easier for learning: when Docker/Caddy first uses port 80, Windows may pop up — tick **Private networks** → Allow.
+`localhost` on the Docker PC can work while the phone and another PC still fail — Windows Firewall often blocks **inbound** LAN traffic.
 
-If the phone cannot connect later, temporarily allow inbound **TCP port 80** on Private networks, or turn the firewall off only while testing on home Wi‑Fi.
+Do this on the PC that runs Docker (Command Prompt **as Administrator**):
+
+```bat
+netsh advfirewall firewall add rule name="Ertaki LAN 80" dir=in action=allow protocol=TCP localport=80
+netsh advfirewall firewall add rule name="Ertaki LAN 8080" dir=in action=allow protocol=TCP localport=8080
+```
+
+Also:
+
+1. Click the network icon → make sure this Wi‑Fi is **Private** (not Public).
+2. Turn **off** VPN on the phone and on both PCs while testing.
+3. Do **not** use Guest Wi‑Fi.
+
+Quick proof from the **other PC** or **phone browser** (not the Docker PC):
+
+```text
+http://YOUR-PC-IP/api/health
+http://YOUR-PC-IP:8080/api/health
+```
+
+If neither opens, the problem is still network/firewall — not the app. Fix that before testing the APK.
+
+Optional nuclear test (home only, turn back on after):
+
+```bat
+netsh advfirewall set allprofiles state off
+```
+
+When done testing:
+
+```bat
+netsh advfirewall set allprofiles state on
+```
 
 ---
 
@@ -349,11 +390,14 @@ Under PORTS for `caddy` you should see something like `0.0.0.0:80->80` and `0.0.
 2. **Inbound Rules** → **New Rule** → Port → TCP → `80, 8080` → Allow → Private → name it `Ertaki LAN`.
 3. Keep the network profile **Private** (not Public guest Wi‑Fi).
 
-#### G) Same Wi‑Fi rules
+#### G) Same Wi‑Fi rules (phone / other PC)
 
-- Phone and PC must share the same SSID.
+- Phone and other PC must use the **same Wi‑Fi name** as the Docker PC.
+- **Mobile data does not work** for `http://192.168.x.x` — turn Wi‑Fi on and mobile data off while testing.
 - Avoid **Guest** Wi‑Fi / client isolation (AP/client isolation blocks phone→PC).
-- Prefer `http://YOUR-PC-IP/...` on other devices — never `localhost` (that means “this phone itself”).
+- On the other device open the health URL in a **browser first**. If the browser fails, the app will fail too.
+- Prefer `http://YOUR-PC-IP/...` (or `:8080`) — never `localhost` on the phone/other PC (`localhost` means that device itself).
+- Firewall rules from [section 5](#5-allow-windows-firewall-required-for-phone--other-pc) must be in place.
 
 #### H) Docker Desktop reset (last resort)
 
