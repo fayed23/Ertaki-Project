@@ -788,7 +788,7 @@ class _TeacherAttendanceState extends State<TeacherAttendance> {
         'groupId': groupId,
         'sessionDate': todayIso(),
         'entries': entries,
-      }) as Map<String, dynamic>;
+      });
       final n = (res['generated'] as num?)?.toInt() ?? entries.length;
       showToast(
         context,

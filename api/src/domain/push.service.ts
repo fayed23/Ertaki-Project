@@ -72,9 +72,7 @@ export class PushService {
       existing.platform = platform;
       return this.tokens.save(existing);
     }
-    return this.tokens.save(
-      this.tokens.create({ userId, token, platform }),
-    );
+    return this.tokens.save(this.tokens.create({ userId, token, platform }));
   }
 
   async unregisterToken(userId: string, token: string) {

@@ -15,13 +15,7 @@ import { RolesGuard } from '../common/roles.guard';
 import { Roles } from '../common/roles.decorator';
 import { CurrentUser } from '../common/current-user.decorator';
 import { User } from '../entities/user.entity';
-import {
-  AttendanceStatus,
-  InfractionAction,
-  InfractionType,
-  NoteVisibility,
-  UserRole,
-} from '../common/enums';
+import { UserRole } from '../common/enums';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -132,7 +126,12 @@ export class GroupsController {
     @Param('id') id: string,
     @Body() body: { accept: boolean; reviewNote?: string },
   ) {
-    return this.domain.reviewJoinRequest(user, id, body.accept, body.reviewNote);
+    return this.domain.reviewJoinRequest(
+      user,
+      id,
+      body.accept,
+      body.reviewNote,
+    );
   }
   @Get('account-approvals')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)

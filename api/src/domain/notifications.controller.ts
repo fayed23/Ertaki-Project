@@ -1,27 +1,9 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { DomainService } from './domain.service';
 import { JwtAuthGuard } from '../common/jwt-auth.guard';
 import { RolesGuard } from '../common/roles.guard';
-import { Roles } from '../common/roles.decorator';
 import { CurrentUser } from '../common/current-user.decorator';
 import { User } from '../entities/user.entity';
-import {
-  AttendanceStatus,
-  InfractionAction,
-  InfractionType,
-  NoteVisibility,
-  UserRole,
-} from '../common/enums';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -51,10 +33,7 @@ export class NotificationsController {
     return this.domain.registerDeviceToken(user, body.token, body.platform);
   }
   @Post('device-tokens/unregister')
-  unregisterDevice(
-    @CurrentUser() user: User,
-    @Body() body: { token: string },
-  ) {
+  unregisterDevice(@CurrentUser() user: User, @Body() body: { token: string }) {
     return this.domain.unregisterDeviceToken(user, body.token);
   }
 }

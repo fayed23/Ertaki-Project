@@ -237,18 +237,11 @@ export class DomainService {
         { userId: user.id, role: user.role },
       );
     }
-    await this.auditLog(
-      actor.id,
-      'account.review',
-      'user',
-      user.id,
-      before,
-      {
-        status: user.status,
-        isActive: user.isActive,
-        accountReviewNote: user.accountReviewNote,
-      },
-    );
+    await this.auditLog(actor.id, 'account.review', 'user', user.id, before, {
+      status: user.status,
+      isActive: user.isActive,
+      accountReviewNote: user.accountReviewNote,
+    });
     const { passwordHash: _, ...safe } = user;
     return safe;
   }
@@ -282,10 +275,7 @@ export class DomainService {
     if (!teacher || teacher.role !== UserRole.TEACHER) {
       throw new BadRequestException('المعلم غير صالح');
     }
-    const start =
-      input.sessionStartTime ||
-      input.weeklySessionTime ||
-      '20:00';
+    const start = input.sessionStartTime || input.weeklySessionTime || '20:00';
     const end = input.sessionEndTime || '21:00';
     const status = isSupervisor
       ? GroupStatus.OPEN
@@ -451,9 +441,7 @@ export class DomainService {
       group.weeklySessionDay = input.weeklySessionDay;
     }
     const start =
-      input.sessionStartTime ??
-      input.weeklySessionTime ??
-      undefined;
+      input.sessionStartTime ?? input.weeklySessionTime ?? undefined;
     if (start != null) {
       group.sessionStartTime = start;
       group.weeklySessionTime = start;
@@ -469,23 +457,16 @@ export class DomainService {
       group.description = input.description?.trim() || null;
     }
     await this.groups.save(group);
-    await this.auditLog(
-      actor.id,
-      'group.update',
-      'group',
-      group.id,
-      before,
-      {
-        name: group.name,
-        gender: group.gender,
-        seatCount: group.seatCount,
-        weeklySessionDay: group.weeklySessionDay,
-        sessionStartTime: group.sessionStartTime,
-        sessionEndTime: group.sessionEndTime,
-        whatsappUrl: group.whatsappUrl,
-        description: group.description,
-      },
-    );
+    await this.auditLog(actor.id, 'group.update', 'group', group.id, before, {
+      name: group.name,
+      gender: group.gender,
+      seatCount: group.seatCount,
+      weeklySessionDay: group.weeklySessionDay,
+      sessionStartTime: group.sessionStartTime,
+      sessionEndTime: group.sessionEndTime,
+      whatsappUrl: group.whatsappUrl,
+      description: group.description,
+    });
     if (isOwnerTeacher) {
       const supervisors = await this.users.find({
         where: [{ role: UserRole.SUPERVISOR }, { role: UserRole.ADMIN }],
@@ -655,9 +636,7 @@ export class DomainService {
       id: group.id,
       name: group.name,
       teacherId: group.teacherId,
-      teacherName: teacher
-        ? `${teacher.firstName} ${teacher.lastName}`
-        : null,
+      teacherName: teacher ? `${teacher.firstName} ${teacher.lastName}` : null,
       teacher: teacher
         ? {
             id: teacher.id,
@@ -758,9 +737,16 @@ export class DomainService {
     if (!membership && !stillPending) {
       await this.users.update(actor.id, { status: UserStatus.NEW });
     }
-    await this.auditLog(actor.id, 'join_request.cancel', 'join_request', id, null, {
-      status: req.status,
-    });
+    await this.auditLog(
+      actor.id,
+      'join_request.cancel',
+      'join_request',
+      id,
+      null,
+      {
+        status: req.status,
+      },
+    );
     return req;
   }
 
@@ -793,10 +779,7 @@ export class DomainService {
       throw new BadRequestException('الطلب غير صالح للمراجعة');
     }
     const group = await this.getGroup(req.groupId);
-    if (
-      actor.role === UserRole.TEACHER &&
-      group.teacherId !== actor.id
-    ) {
+    if (actor.role === UserRole.TEACHER && group.teacherId !== actor.id) {
       throw new ForbiddenException('هذه المجموعة ليست ضمن مجموعاتك');
     }
     const before = { status: req.status };
@@ -851,9 +834,16 @@ export class DomainService {
         { joinRequestId: req.id },
       );
     }
-    await this.auditLog(actor.id, 'join_request.review', 'join_request', id, before, {
-      status: req.status,
-    });
+    await this.auditLog(
+      actor.id,
+      'join_request.review',
+      'join_request',
+      id,
+      before,
+      {
+        status: req.status,
+      },
+    );
     return req;
   }
 
@@ -889,10 +879,7 @@ export class DomainService {
     };
   }
 
-  private formatWeekly(
-    w: WeeklyReport,
-    mode: 'brief' | 'detailed' = 'brief',
-  ) {
+  private formatWeekly(w: WeeklyReport, mode: 'brief' | 'detailed' = 'brief') {
     const student = w.student;
     const summary = (w.summaryJson ?? {}) as Record<string, unknown>;
     const attended =
@@ -911,7 +898,8 @@ export class DomainService {
       missedFiftyReps:
         (summary.missedFiftyReps as number | undefined) ??
         Math.max(0, 7 - w.fiftyRepsDaysMet),
-      missedSingleSitting: (summary.missedSingleSitting as number | undefined) ?? 0,
+      missedSingleSitting:
+        (summary.missedSingleSitting as number | undefined) ?? 0,
       missedReview: (summary.missedReview as number | undefined) ?? 0,
     };
     const studentName = student
@@ -949,7 +937,11 @@ export class DomainService {
   membershipHistory(actor: User, studentId?: string) {
     const id =
       actor.role === UserRole.STUDENT ? actor.id : studentId || actor.id;
-    if (actor.role === UserRole.STUDENT && studentId && studentId !== actor.id) {
+    if (
+      actor.role === UserRole.STUDENT &&
+      studentId &&
+      studentId !== actor.id
+    ) {
       throw new ForbiddenException();
     }
     return this.memberships.find({
@@ -1024,8 +1016,10 @@ export class DomainService {
     return this.enrichDailyReport(report);
   }
 
-  private qalunSurahCounts: Map<number, { nameAr: string; ayahCount: number }> | null =
-    null;
+  private qalunSurahCounts: Map<
+    number,
+    { nameAr: string; ayahCount: number }
+  > | null = null;
 
   private loadQalunSurahCounts() {
     if (this.qalunSurahCounts) return this.qalunSurahCounts;
@@ -1251,7 +1245,10 @@ export class DomainService {
     };
   }
 
-  private async evaluateContentInfractions(studentId: string, report: DailyReport) {
+  private async evaluateContentInfractions(
+    studentId: string,
+    report: DailyReport,
+  ) {
     const quota = await this.quotas.findOne({ where: { studentId } });
     if (!report.memorizedQuota) {
       await this.recordInfraction(
@@ -1379,7 +1376,9 @@ export class DomainService {
 
   listPolicies(actor: User) {
     this.requireSupervisor(actor);
-    return this.policies.find({ order: { infractionType: 'ASC', thresholdCount: 'ASC' } });
+    return this.policies.find({
+      order: { infractionType: 'ASC', thresholdCount: 'ASC' },
+    });
   }
 
   async upsertPolicy(
@@ -1472,18 +1471,29 @@ export class DomainService {
       quota.setById = actor.id;
     }
     const saved = await this.quotas.save(quota);
-    await this.auditLog(actor.id, 'quota.set', 'student_quota', saved.id, null, {
-      studentId,
-      dailyQuotaDescription: saved.dailyQuotaDescription,
-      requiredRepetitions: saved.requiredRepetitions,
-    });
+    await this.auditLog(
+      actor.id,
+      'quota.set',
+      'student_quota',
+      saved.id,
+      null,
+      {
+        studentId,
+        dailyQuotaDescription: saved.dailyQuotaDescription,
+        requiredRepetitions: saved.requiredRepetitions,
+      },
+    );
     return saved;
   }
 
   getQuota(actor: User, studentId?: string) {
     const id =
       actor.role === UserRole.STUDENT ? actor.id : studentId || actor.id;
-    if (actor.role === UserRole.STUDENT && studentId && studentId !== actor.id) {
+    if (
+      actor.role === UserRole.STUDENT &&
+      studentId &&
+      studentId !== actor.id
+    ) {
       throw new ForbiddenException();
     }
     return this.quotas.findOne({ where: { studentId: id } });
@@ -1683,11 +1693,18 @@ export class DomainService {
         noteDate: input.noteDate,
       }),
     );
-    await this.auditLog(actor.id, 'note.create', 'student_note', note.id, null, {
-      studentId: note.studentId,
-      visibility: note.visibility,
-      noteDate: note.noteDate,
-    });
+    await this.auditLog(
+      actor.id,
+      'note.create',
+      'student_note',
+      note.id,
+      null,
+      {
+        studentId: note.studentId,
+        visibility: note.visibility,
+        noteDate: note.noteDate,
+      },
+    );
     if (input.visibility === NoteVisibility.STUDENT_VISIBLE) {
       await this.notify(
         input.studentId,
@@ -1778,7 +1795,7 @@ export class DomainService {
     const sessionDate = opts?.sessionDate;
     const sessionRow = sessionDate
       ? att.find((a) => a.sessionDate === sessionDate)
-      : att.find((a) => a.status === AttendanceStatus.PRESENT) ?? att[0];
+      : (att.find((a) => a.status === AttendanceStatus.PRESENT) ?? att[0]);
     const attendedMajlis = sessionRow
       ? sessionRow.status === AttendanceStatus.PRESENT
       : att.some((a) => a.status === AttendanceStatus.PRESENT);
@@ -1793,7 +1810,8 @@ export class DomainService {
       weekEndDate,
       dailyReportsSubmitted: dailies.length,
       quotaDaysMet: dailies.filter((d) => d.memorizedQuota).length,
-      fiftyRepsDaysMet: dailies.filter((d) => d.completedFiftyRepetitions).length,
+      fiftyRepsDaysMet: dailies.filter((d) => d.completedFiftyRepetitions)
+        .length,
       presentSessions: att.filter((a) => a.status === AttendanceStatus.PRESENT)
         .length,
       excusedAbsences: att.filter((a) => a.status === AttendanceStatus.EXCUSED)
@@ -1896,7 +1914,8 @@ export class DomainService {
         },
       );
       const full =
-        (await this.weeklyReports.findOne({ where: { id: saved.id } })) ?? saved;
+        (await this.weeklyReports.findOne({ where: { id: saved.id } })) ??
+        saved;
       reports.push(full);
       await this.notify(
         entry.studentId,
@@ -1949,7 +1968,9 @@ export class DomainService {
    */
   async autoGenerateWeeklyReports(timezone = 'Africa/Algiers') {
     const { weekStart, weekEnd } = this.previousWeekBounds(timezone);
-    const members = await this.memberships.find({ where: { leftAt: IsNull() } });
+    const members = await this.memberships.find({
+      where: { leftAt: IsNull() },
+    });
     const studentIds = [...new Set(members.map((m) => m.userId))];
     let created = 0;
     let skippedNoAttendance = 0;
@@ -2040,7 +2061,9 @@ export class DomainService {
     const parts = Object.fromEntries(
       fmt.formatToParts(new Date()).map((p) => [p.type, p.value]),
     );
-    const today = new Date(`${parts.year}-${parts.month}-${parts.day}T12:00:00Z`);
+    const today = new Date(
+      `${parts.year}-${parts.month}-${parts.day}T12:00:00Z`,
+    );
     const weekday = parts.weekday; // Mon, Tue, ...
     const map: Record<string, number> = {
       Sat: 0,
@@ -2100,7 +2123,9 @@ export class DomainService {
     } else {
       this.requireTeacher(actor);
       if (!studentId) {
-        const groups = await this.groups.find({ where: { teacherId: actor.id } });
+        const groups = await this.groups.find({
+          where: { teacherId: actor.id },
+        });
         const gids = groups.map((g) => g.id);
         if (!gids.length) return [];
         rows = await this.weeklyReports
@@ -2161,8 +2186,12 @@ export class DomainService {
       current.leaveReason = reason || 'group_change';
       await this.memberships.save(current);
       const oldGroup = await this.getGroup(current.groupId);
-      oldGroup.currentStudentCount = Math.max(0, oldGroup.currentStudentCount - 1);
-      if (oldGroup.status === GroupStatus.FULL) oldGroup.status = GroupStatus.OPEN;
+      oldGroup.currentStudentCount = Math.max(
+        0,
+        oldGroup.currentStudentCount - 1,
+      );
+      if (oldGroup.status === GroupStatus.FULL)
+        oldGroup.status = GroupStatus.OPEN;
       await this.groups.save(oldGroup);
     }
     const group = await this.getGroup(newGroupId);
@@ -2183,10 +2212,17 @@ export class DomainService {
     }
     await this.groups.save(group);
     await this.users.update(studentId, { status: UserStatus.ACTIVE });
-    await this.auditLog(actor.id, 'membership.change_group', 'membership', membership.id, null, {
-      studentId,
-      newGroupId,
-    });
+    await this.auditLog(
+      actor.id,
+      'membership.change_group',
+      'membership',
+      membership.id,
+      null,
+      {
+        studentId,
+        newGroupId,
+      },
+    );
     return membership;
   }
 

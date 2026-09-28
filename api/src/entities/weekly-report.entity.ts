@@ -24,7 +24,7 @@ export class WeeklyReport {
   @ManyToOne(() => Group, { eager: true, nullable: true })
   group: Group | null;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   groupId: string | null;
 
   @Column({ type: 'date' })

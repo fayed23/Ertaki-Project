@@ -50,10 +50,10 @@ export class DailyReport {
   @Column({ type: 'varchar', nullable: true })
   reviewPortion: string | null;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   reviewFrom: string | null;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   reviewTo: string | null;
 
   @Column({ default: false })

@@ -31,7 +31,7 @@ export class GroupMembership {
   @Column({ type: 'datetime', nullable: true })
   leftAt: Date | null;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   leaveReason: string | null;
 
   @CreateDateColumn()

@@ -47,7 +47,7 @@ export class Group {
   @Column({ type: 'varchar', default: GroupStatus.OPEN })
   status: GroupStatus;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   whatsappUrl: string | null;
 
   @Column({ type: 'text', nullable: true })

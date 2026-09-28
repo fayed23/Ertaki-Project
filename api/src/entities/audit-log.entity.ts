@@ -19,7 +19,7 @@ export class AuditLog {
   @Column()
   entityType: string;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   entityId: string | null;
 
   @Column({ type: 'simple-json', nullable: true })

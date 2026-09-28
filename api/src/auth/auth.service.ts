@@ -53,7 +53,9 @@ export class AuthService {
     }
     const role =
       input.role === UserRole.TEACHER ? UserRole.TEACHER : UserRole.STUDENT;
-    const existing = await this.users.findOne({ where: { phone: input.phone } });
+    const existing = await this.users.findOne({
+      where: { phone: input.phone },
+    });
     if (existing) throw new ConflictException('رقم الهاتف مسجّل مسبقاً');
     if (!input.password || input.password.length < 6) {
       throw new BadRequestException('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
@@ -158,10 +160,7 @@ export class AuthService {
     return this.tokenResponse(user);
   }
 
-  private tokenResponse(
-    user: User,
-    extra?: Record<string, unknown>,
-  ) {
+  private tokenResponse(user: User, extra?: Record<string, unknown>) {
     const accessToken = this.jwt.sign({ sub: user.id, role: user.role });
     const { passwordHash: _, ...safe } = user;
     return { accessToken, user: safe, ...(extra ?? {}) };

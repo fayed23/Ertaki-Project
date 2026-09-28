@@ -77,9 +77,16 @@ export class ReminderService implements OnModuleInit {
     const eveningKey = `${today}-evening`;
     const lateKey = `${today}-late`;
 
-    if (this.near(minutesNow, eveningTarget) && this.lastEveningKey !== eveningKey) {
+    if (
+      this.near(minutesNow, eveningTarget) &&
+      this.lastEveningKey !== eveningKey
+    ) {
       this.lastEveningKey = eveningKey;
-      await this.remindMissingStudents(today, 'deadline_reminder', reminderMins);
+      await this.remindMissingStudents(
+        today,
+        'deadline_reminder',
+        reminderMins,
+      );
     }
     if (this.near(minutesNow, lateTarget) && this.lastLateKey !== lateKey) {
       this.lastLateKey = lateKey;
@@ -98,7 +105,8 @@ export class ReminderService implements OnModuleInit {
     if (this.lastWeeklyKey === key) return;
     this.lastWeeklyKey = key;
     try {
-      const result = await this.domain.autoGenerateWeeklyReports('Africa/Algiers');
+      const result =
+        await this.domain.autoGenerateWeeklyReports('Africa/Algiers');
       this.logger.log(
         `Auto weekly reports (fallback): created=${result.created} skippedNoAttendance=${result.skippedNoAttendance} week=${result.weekStart}..${result.weekEnd}`,
       );
@@ -136,7 +144,9 @@ export class ReminderService implements OnModuleInit {
     type: string,
     minutesLeft: number,
   ) {
-    const members = await this.memberships.find({ where: { leftAt: IsNull() } });
+    const members = await this.memberships.find({
+      where: { leftAt: IsNull() },
+    });
     const studentIds = [...new Set(members.map((m) => m.userId))];
     if (!studentIds.length) return;
 
@@ -178,6 +188,8 @@ export class ReminderService implements OnModuleInit {
       );
       sent++;
     }
-    this.logger.log(`Deadline reminders (${type}): ${sent} students for ${today}`);
+    this.logger.log(
+      `Deadline reminders (${type}): ${sent} students for ${today}`,
+    );
   }
 }

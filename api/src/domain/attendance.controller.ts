@@ -8,20 +8,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
 import { DomainService } from './domain.service';
 import { JwtAuthGuard } from '../common/jwt-auth.guard';
 import { RolesGuard } from '../common/roles.guard';
 import { Roles } from '../common/roles.decorator';
 import { CurrentUser } from '../common/current-user.decorator';
 import { User } from '../entities/user.entity';
-import {
-  AttendanceStatus,
-  InfractionAction,
-  InfractionType,
-  NoteVisibility,
-  UserRole,
-} from '../common/enums';
+import { AttendanceStatus, NoteVisibility, UserRole } from '../common/enums';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -109,10 +102,7 @@ export class AttendanceController {
     return this.domain.addNote(user, body);
   }
   @Get('notes')
-  listNotes(
-    @CurrentUser() user: User,
-    @Query('studentId') studentId?: string,
-  ) {
+  listNotes(@CurrentUser() user: User, @Query('studentId') studentId?: string) {
     return this.domain.listNotes(user, studentId);
   }
 }

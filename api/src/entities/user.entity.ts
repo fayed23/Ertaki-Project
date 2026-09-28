@@ -44,13 +44,13 @@ export class User {
   @Column({ type: 'date', nullable: true })
   birthDate: string | null;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   city: string | null;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   currentMemorization: string | null;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   memorizationLevel: string | null;
 
   @Column({ default: false })

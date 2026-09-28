@@ -30,7 +30,7 @@ export class JoinRequest {
   @Column({ type: 'varchar', default: JoinRequestStatus.PENDING })
   status: JoinRequestStatus;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   reviewedById: string | null;
 
   @Column({ type: 'text', nullable: true })

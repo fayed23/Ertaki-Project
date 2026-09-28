@@ -36,7 +36,7 @@ export class AbsenceExcuseRequest {
   @Column({ type: 'varchar', default: ExcuseRequestStatus.PENDING })
   status: ExcuseRequestStatus;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   reviewedById: string | null;
 
   @CreateDateColumn()

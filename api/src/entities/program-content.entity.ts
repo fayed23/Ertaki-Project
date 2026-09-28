@@ -20,7 +20,7 @@ export class ProgramContent {
   @Column({ type: 'text' })
   body: string;
 
-  @Column({ type: 'varchar', nullable: true  })
+  @Column({ type: 'varchar', nullable: true })
   videoUrl: string | null;
 
   @CreateDateColumn()

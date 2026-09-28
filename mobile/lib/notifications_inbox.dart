@@ -252,9 +252,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ),
                     const SizedBox(height: 4),
                     Text('${item['body']}', style: ui(color: Brand.muted)),
-                    if (tappable) ...[
+                    if (tappable && hint != null) ...[
                       const SizedBox(height: 6),
-                      Text(hint!, style: ui(size: 12, color: Brand.forestMid)),
+                      Text(hint, style: ui(size: 12, color: Brand.forestMid)),
                     ],
                   ],
                 ),
