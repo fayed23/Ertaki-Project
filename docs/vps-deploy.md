@@ -3,6 +3,8 @@
 Dockerized production path for the Nest API + Next admin + Postgres behind Caddy.  
 Clients (Flutter / admin browser) talk **only** to the API over HTTPS/JSON.
 
+**Learning at home first?** Practice the same Docker stack on your PC Wi‑Fi (no VPS purchase) with the plain-language guide: [`lan-home-pilot.md`](./lan-home-pilot.md).
+
 ## Prerequisites
 
 - Docker Engine + Compose v2
@@ -141,6 +143,7 @@ GitHub Actions: API lint/build/e2e (peer invisibility, immutability, policies, a
 
 ## Related
 
+- Home LAN pilot (before buying a VPS): `docs/lan-home-pilot.md`
 - Gap analysis: `docs/structure-gap-analysis.md`
 - Ship review: `docs/p0-p2-ship-review.md`
 - Product map: `workflow.md`

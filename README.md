@@ -168,6 +168,14 @@ npm run start:dev
 
 ---
 
+## Practice on home Wi‑Fi (Docker — like a VPS, no purchase)
+
+Same stack as production, on your PC. Phone APK + PC on the same Wi‑Fi.
+
+Plain-language steps (Windows): [`docs/lan-home-pilot.md`](./docs/lan-home-pilot.md)
+
+Phone API URL becomes `http://YOUR-PC-IP/api` (port **80** via Caddy — not `:43124`).
+
 ## VPS (Docker — production)
 
 Full stack: **Postgres + API + Admin + Caddy** (TLS). Nest is internal-only; clients hit Caddy.
@@ -226,7 +234,7 @@ admin/             Next.js supervisor UI (RTL, + Dockerfile)
 mobile/            Flutter (Android + iOS + web; lan/prod flavors)
 deploy/            Caddyfile, backup/restore scripts
 releases/          Sideload Android APK(s)
-docs/              Production / rebuild curriculum + vps-deploy.md
+docs/              Production / rebuild curriculum + vps-deploy.md + lan-home-pilot.md
 .github/workflows  CI (api/admin/mobile)
 requirements.md    Full Arabic product requirements
 docker-compose.yml Production stack (postgres+api+admin+caddy)
