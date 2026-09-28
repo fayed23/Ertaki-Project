@@ -210,13 +210,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
             ...items.map((n) {
               final item = Map<String, dynamic>.from(n as Map);
               final type = '${item['type'] ?? ''}';
-              final hint = _hint(type);
+              final tip = _hint(type);
               final isSupervisor = widget.role == 'supervisor' || widget.role == 'admin';
               final reportLockedForSupervisor = isSupervisor &&
                   (type == 'daily_report_submitted' ||
                       type == 'weekly_report_staff' ||
                       type == 'weekly_report');
-              final tappable = hint != null && !reportLockedForSupervisor;
+              final tappable = tip != null && !reportLockedForSupervisor;
               final unreadItem = item['readAt'] == null;
               return SoftPanel(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -252,9 +252,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ),
                     const SizedBox(height: 4),
                     Text('${item['body']}', style: ui(color: Brand.muted)),
-                    if (tappable && hint != null) ...[
+                    if (tip != null && !reportLockedForSupervisor) ...[
                       const SizedBox(height: 6),
-                      Text(hint, style: ui(size: 12, color: Brand.forestMid)),
+                      Text(tip, style: ui(size: 12, color: Brand.forestMid)),
                     ],
                   ],
                 ),
