@@ -10,7 +10,8 @@ By the end you will have:
 | Health check | `https://YOUR-DOMAIN/api/health` → `{"status":"ok","db":"up"}` |
 | Phone app | APK pointed at `https://YOUR-DOMAIN/api` |
 
-**Practice first (free, no VPS):** same Docker stack on your home PC Wi‑Fi → [`lan-home-pilot.md`](./lan-home-pilot.md).
+**Practice first (free, no VPS):** same Docker stack on your home PC Wi‑Fi → [`lan-home-pilot.md`](./lan-home-pilot.md)  
+(Use `docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build` so Caddy answers `localhost` and your LAN IP on HTTP, with port **8080** as a Windows fallback.)
 
 ---
 
