@@ -9,9 +9,10 @@
 services:
   caddy:
     ports:
-      - "80:80"
-      - "8080:80"
-      - "443:443"
+      # Explicit 0.0.0.0 so LAN devices (phone / other PC) can reach the host, not only localhost.
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:8080:80"
+      - "0.0.0.0:443:443"
     volumes:
       - ./deploy/Caddyfile.lan:/etc/caddy/Caddyfile:ro
     environment:

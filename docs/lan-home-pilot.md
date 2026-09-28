@@ -15,6 +15,19 @@ You do **not** need to buy a server yet.
 
 The Caddy LAN fix (catch‑all Host + port 8080) only helps devices that can already route to your PC on the LAN. It does **not** publish your home PC to the whole internet.
 
+### Does the Caddy fix help the phone and another PC?
+
+**Partly — you still need the firewall step.**
+
+| Piece | What it fixes |
+|---|---|
+| LAN Caddy overlay (`Caddyfile.lan`) | Other devices sending Host `YOUR-PC-IP` actually get a response (production Caddy ignored them / mismatched `localhost`) |
+| Port **8080** fallback | When Windows steals port 80 |
+| **Windows Firewall allow 80/8080** | Phone / other PC can open a connection at all (this is usually why “same Wi‑Fi” still fails) |
+| Same SSID, Private network, no Guest / VPN | Packets can reach your PC |
+
+So: pull the fix **and** run the firewall script below, then test in the **phone’s browser** before the APK.
+
 ---
 
 ## What you will have at the end
@@ -131,18 +144,25 @@ This turns on **demo accounts** so you can log in immediately. That is OK for ho
 
 `localhost` on the Docker PC can work while the phone and another PC still fail — Windows Firewall often blocks **inbound** LAN traffic.
 
-Do this on the PC that runs Docker (Command Prompt **as Administrator**):
+**Easiest:** on the Docker PC, right‑click this file → **Run as administrator**:
+
+```text
+deploy\scripts\windows-open-lan-firewall.bat
+```
+
+Or paste these in Command Prompt **as Administrator**:
 
 ```bat
-netsh advfirewall firewall add rule name="Ertaki LAN 80" dir=in action=allow protocol=TCP localport=80
-netsh advfirewall firewall add rule name="Ertaki LAN 8080" dir=in action=allow protocol=TCP localport=8080
+netsh advfirewall firewall add rule name="Ertaki LAN 80" dir=in action=allow protocol=TCP localport=80 profile=private,domain
+netsh advfirewall firewall add rule name="Ertaki LAN 8080" dir=in action=allow protocol=TCP localport=8080 profile=private,domain
 ```
 
 Also:
 
-1. Click the network icon → make sure this Wi‑Fi is **Private** (not Public).
+1. Click the network icon → make sure this Wi‑Fi / Ethernet is **Private** (not Public).
 2. Turn **off** VPN on the phone and on both PCs while testing.
 3. Do **not** use Guest Wi‑Fi.
+4. Phone and other PC must use your **PC LAN IP** (`192.168…`), never `localhost` / `127.0.0.1`.
 
 Quick proof from the **other PC** or **phone browser** (not the Docker PC):
 
@@ -218,6 +238,23 @@ You should see the **ارتق** supervisor login page.
 
 **If nothing opens:** jump to [Common problems](#common-problems) — especially “Containers healthy but browser cannot connect”.
 
+### 6b) Prove the phone / other PC can reach you (before the APK)
+
+On the **other PC** and in the **phone’s Chrome/Safari** (same Wi‑Fi), open:
+
+```text
+http://YOUR-PC-IP/api/health
+```
+
+or
+
+```text
+http://YOUR-PC-IP:8080/api/health
+```
+
+- **Works** → use that exact base (`…/api`) in the APK and on the other PC browser for admin.
+- **Fails while Docker PC localhost works** → re-run `deploy\scripts\windows-open-lan-firewall.bat` as Administrator, set network to Private, disable VPN. The Caddy fix alone cannot open a blocked Windows firewall.
+
 ---
 
 ## 7) Log into the admin (on the PC)
@@ -287,13 +324,14 @@ Teacher demo: `0500000002` / `password123`.
 
 ## 10) Quick “did it work?” checklist
 
+- [ ] Ran `deploy\scripts\windows-open-lan-firewall.bat` as Administrator  
 - [ ] Docker Desktop is running  
 - [ ] Started with `docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build`  
 - [ ] `docker compose … ps` shows 4 services up  
-- [ ] PC browser: `http://127.0.0.1/api/health` **or** `http://127.0.0.1:8080/api/health` → ok  
-- [ ] PC browser: admin login works on the same host/port  
-- [ ] Phone Wi‑Fi = same as PC  
-- [ ] Phone API URL = `http://YOUR-PC-IP/api` (or `:8080/api` if that is what worked)  
+- [ ] Docker PC: `http://127.0.0.1/api/health` **or** `:8080` → ok  
+- [ ] **Phone browser** (not only the app): `http://YOUR-PC-IP/api/health` (or `:8080`) → ok  
+- [ ] **Other PC browser**: same URL → ok  
+- [ ] Phone API URL = that working `http://YOUR-PC-IP/api` (or `:8080/api`)  
 - [ ] Student/teacher can log in on the phone  
 
 ---
@@ -386,9 +424,11 @@ Under PORTS for `caddy` you should see something like `0.0.0.0:80->80` and `0.0.
 
 #### F) Windows Firewall (needed for phone / other PC)
 
-1. Windows search → **Windows Defender Firewall** → **Advanced settings**.
-2. **Inbound Rules** → **New Rule** → Port → TCP → `80, 8080` → Allow → Private → name it `Ertaki LAN`.
-3. Keep the network profile **Private** (not Public guest Wi‑Fi).
+Right‑click `deploy\scripts\windows-open-lan-firewall.bat` → **Run as administrator**.
+
+Or manually: Windows search → **Windows Defender Firewall** → **Advanced settings** → **Inbound Rules** → **New Rule** → Port → TCP → `80, 8080` → Allow → Private → name it `Ertaki LAN`.
+
+Keep the network profile **Private** (not Public guest Wi‑Fi).
 
 #### G) Same Wi‑Fi rules (phone / other PC)
 
