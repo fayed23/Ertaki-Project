@@ -1,6 +1,6 @@
 # P0–P2 ship review — critical
 
-**Reviewed:** `c6a90c4` (“Ship P0–P2 VPS production structure and APK 1.0.14”) + `f1bca8f` (post-ship docs) + CI follow-up on this review.  
+**Reviewed:** `c6a90c4` (“Ship P0–P2 VPS production structure and APK 1.0.14”) + `f1bca8f` (post-ship docs) + CI follow-up `71a4888` (green CI).  
 **Intent:** Close structure-gap P0–P2 so the stack is VPS-bootable, operable, and lightly hardened — without rewriting product features.
 
 ## Verdict
