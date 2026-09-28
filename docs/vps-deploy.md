@@ -13,6 +13,8 @@ By the end you will have:
 **Practice first (free, no VPS):** same Docker stack on your home PC Wi‑Fi → [`lan-home-pilot.md`](./lan-home-pilot.md)  
 (Use `docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build` so Caddy answers `localhost` and your LAN IP on HTTP, with port **8080** as a Windows fallback.)
 
+**On a real VPS:** use only `docker compose up -d --build` (production `deploy/Caddyfile` + HTTPS). Do **not** pass `-f docker-compose.lan.yml` on the VPS — that overlay turns off automatic HTTPS and is for home Wi‑Fi only.
+
 ---
 
 ## Table of contents
