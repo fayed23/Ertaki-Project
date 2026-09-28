@@ -9,17 +9,18 @@ import {
   NoteVisibility,
   UserRole,
   AttendanceStatus,
-  ExcuseRequestStatus,
 } from '../common/enums';
 import { User } from '../entities/user.entity';
 import { DomainContext } from './domain-context';
 import { ReportsService } from './reports.service';
+import { StudentRequestsService } from './student-requests.service';
 
 @Injectable()
 export class AttendanceService {
   constructor(
     private readonly ctx: DomainContext,
     private readonly reports: ReportsService,
+    private readonly studentRequests: StudentRequestsService,
   ) {}
 
   async recordAttendance(
@@ -130,71 +131,15 @@ export class AttendanceService {
     actor: User,
     input: { groupId: string; sessionDate: string; reason: string },
   ) {
-    if (actor.role !== UserRole.STUDENT) throw new ForbiddenException();
-    const row = await this.ctx.excuses.save(
-      this.ctx.excuses.create({
-        studentId: actor.id,
-        groupId: input.groupId,
-        sessionDate: input.sessionDate,
-        reason: input.reason,
-        status: ExcuseRequestStatus.PENDING,
-      }),
-    );
-    await this.ctx.notifyStaffAboutStudent(
-      actor.id,
-      'excuse_submitted',
-      'طلب عذر غياب',
-      `${actor.firstName} ${actor.lastName}: ${input.reason}`,
-      {
-        excuseId: row.id,
-        sessionDate: input.sessionDate,
-        groupId: input.groupId,
-      },
-    );
-    return row;
+    return this.studentRequests.legacyRequestExcuse(actor, input);
   }
 
   async reviewExcuse(actor: User, id: string, approve: boolean) {
-    this.ctx.requireStaff(actor);
-    const row = await this.ctx.excuses.findOne({ where: { id } });
-    if (!row || row.status !== ExcuseRequestStatus.PENDING) {
-      throw new BadRequestException('الطلب غير صالح');
-    }
-    const before = { status: row.status };
-    row.status = approve
-      ? ExcuseRequestStatus.APPROVED
-      : ExcuseRequestStatus.REJECTED;
-    row.reviewedById = actor.id;
-    await this.ctx.excuses.save(row);
-    if (approve) {
-      await this.recordAttendance(actor, {
-        studentId: row.studentId,
-        groupId: row.groupId,
-        sessionDate: row.sessionDate,
-        status: AttendanceStatus.EXCUSED,
-        note: row.reason,
-      });
-    }
-    await this.ctx.auditLog(
-      actor.id,
-      'excuse.review',
-      'absence_excuse_request',
-      row.id,
-      before,
-      { status: row.status, approve },
-    );
-    return row;
+    return this.studentRequests.legacyReviewExcuse(actor, id, approve);
   }
 
   listExcuses(actor: User) {
-    if (actor.role === UserRole.STUDENT) {
-      return this.ctx.excuses.find({
-        where: { studentId: actor.id },
-        order: { createdAt: 'DESC' },
-      });
-    }
-    this.ctx.requireStaff(actor);
-    return this.ctx.excuses.find({ order: { createdAt: 'DESC' } });
+    return this.studentRequests.legacyListExcuses(actor);
   }
 
   async addNote(

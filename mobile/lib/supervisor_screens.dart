@@ -3,6 +3,7 @@ import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/groups_catalog.dart';
 import 'package:ertaki_mobile/hub_menu.dart';
+import 'package:ertaki_mobile/student_requests.dart';
 import 'package:ertaki_mobile/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -155,6 +156,12 @@ class _SupervisorHomeState extends State<SupervisorHome> with RouteAware {
               appBar: AppBar(title: Text('المجموعات', style: ui(size: 18, weight: FontWeight.w700))),
               body: Atmosphere(child: SupervisorGroups(api: widget.api)),
             )),
+          ),
+          HubCategory(
+            icon: Icons.assignment_late_outlined,
+            label: 'طلبات الأعذار',
+            subtitle: 'كل المجموعات',
+            onTap: () => _open(StaffRequestsPage(api: widget.api)),
           ),
           HubCategory(
             icon: Icons.menu_book_outlined,

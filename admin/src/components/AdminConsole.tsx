@@ -11,13 +11,15 @@ import type {
   JoinRequest,
   PendingAccount,
   Policy,
+  StudentRequest,
+  StudentRequestStats,
   User,
 } from "@/lib/types";
 import { formatHhMm, parseHhMm } from "@/lib/time";
 import { STATUS_AR, groupStatusLabel } from "@/lib/status";
 import { ClockTimeField } from "@/components/ClockTimeField";
 
-export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "dash" | "accounts" | "joins" | "groups" | "directory" | "policies" }) {
+export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "dash" | "accounts" | "joins" | "groups" | "directory" | "policies" | "requests" }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [phone, setPhone] = useState("0500000001");
@@ -30,10 +32,14 @@ export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "da
   const [groups, setGroups] = useState<Group[]>([]);
   const [directory, setDirectory] = useState<Directory | null>(null);
   const [deadline, setDeadline] = useState<DeadlineConfig | null>(null);
+  const [requests, setRequests] = useState<StudentRequest[]>([]);
+  const [requestStats, setRequestStats] = useState<StudentRequestStats | null>(null);
+  const [requestFilter, setRequestFilter] = useState("pending");
+  const [reviewNote, setReviewNote] = useState("");
   const [closeMinutes, setCloseMinutes] = useState(23 * 60 + 55);
   const router = useRouter();
   const [tab, setTab] = useState<
-    "dash" | "accounts" | "joins" | "groups" | "directory" | "policies"
+    "dash" | "accounts" | "joins" | "groups" | "directory" | "policies" | "requests"
   >(initialTab);
 
   const authed = useMemo(() => !!token && !!user, [token, user]);
@@ -60,7 +66,11 @@ export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "da
 
   async function refresh() {
     if (!token) return;
-    const [d, a, j, p, g, dl, dir] = await Promise.all([
+    const reqPath =
+      requestFilter === "all"
+        ? "/student-requests"
+        : `/student-requests?status=${requestFilter}`;
+    const [d, a, j, p, g, dl, dir, reqs, stats] = await Promise.all([
       api<Dashboard>("/dashboards/supervisor", token),
       api<PendingAccount[]>("/account-approvals", token),
       api<JoinRequest[]>("/join-requests", token),
@@ -68,6 +78,8 @@ export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "da
       api<Group[]>("/groups", token),
       api<DeadlineConfig[] | DeadlineConfig>("/report-deadline-config", token),
       api<Directory>("/directory", token),
+      api<StudentRequest[]>(reqPath, token),
+      api<StudentRequestStats>("/student-requests/stats", token),
     ]);
     setDashboard(d);
     setAccounts(a);
@@ -75,6 +87,8 @@ export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "da
     setPolicies(p);
     setGroups(g);
     setDirectory(dir);
+    setRequests(reqs);
+    setRequestStats(stats);
     const row = Array.isArray(dl) ? dl[0] : dl;
     if (row) {
       setDeadline(row);
@@ -85,7 +99,7 @@ export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "da
   useEffect(() => {
     if (!authed) return;
     refresh().catch((e) => setError(String(e.message || e)));
-  }, [authed]);
+  }, [authed, requestFilter]);
 
   async function onLogin(e: FormEvent) {
     e.preventDefault();
@@ -339,6 +353,7 @@ export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "da
               ["dash", "لوحة المؤشرات"],
               ["accounts", `تفعيل المعلمين${pendingAccounts.length ? ` (${pendingAccounts.length})` : ""}`],
               ["joins", `طلبات الانضمام${pendingJoins.length ? ` (${pendingJoins.length})` : ""}`],
+              ["requests", `الأعذار${requestStats?.pending ? ` (${requestStats.pending})` : ""}`],
               ["groups", "المجموعات"],
               ["directory", "الدليل"],
               ["policies", "سياسات التقصير"],
@@ -776,6 +791,144 @@ export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "da
                   )}
                 </div>
               );})}
+            </div>
+          </section>
+        )}
+
+        {tab === "requests" && (
+          <section className="anim-rise-delay-2">
+            <div className="panel" style={{ padding: "1rem 1.15rem", marginBottom: "1rem" }}>
+              <h2 style={{ margin: 0, fontSize: "1.2rem" }}>إدارة طلبات الأعذار والغياب</h2>
+              <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
+                إحصاءات واقعية فقط — لا حكم تلقائي على كثرة الطلبات.
+              </p>
+              {requestStats && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "0.9rem" }}>
+                  <span className="status-chip">الكل {requestStats.total}</span>
+                  <span className="status-chip">معلّق {requestStats.pending}</span>
+                  <span className="status-chip">مقبول {requestStats.approved}</span>
+                  <span className="status-chip">مرفوض {requestStats.rejected}</span>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.9rem", flexWrap: "wrap" }}>
+                {(["pending", "approved", "rejected", "all"] as const).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className="btn-ghost"
+                    data-active={requestFilter === f}
+                    onClick={() => {
+                      setRequestFilter(f);
+                    }}
+                  >
+                    {f === "pending"
+                      ? "معلّقة"
+                      : f === "approved"
+                        ? "مقبولة"
+                        : f === "rejected"
+                          ? "مرفوضة"
+                          : "الكل"}
+                  </button>
+                ))}
+              </div>
+              <label style={{ display: "block", marginTop: "0.85rem", fontSize: "0.9rem" }}>
+                ملاحظة المراجعة
+                <input
+                  value={reviewNote}
+                  onChange={(e) => setReviewNote(e.target.value)}
+                  style={{ width: "100%", marginTop: "0.35rem" }}
+                  placeholder="اختياري"
+                />
+              </label>
+            </div>
+            <div style={{ display: "grid", gap: "0.75rem" }}>
+              {requests.length === 0 && (
+                <p className="panel" style={{ padding: "1rem", color: "var(--muted)" }}>
+                  لا طلبات في هذا التصفية.
+                </p>
+              )}
+              {requests.map((r) => (
+                <div key={r.id} className="panel" style={{ padding: "1rem 1.1rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
+                    <div>
+                      <strong>
+                        {r.student?.firstName} {r.student?.lastName}
+                      </strong>
+                      <p style={{ margin: "0.25rem 0", color: "var(--muted)", fontSize: "0.9rem" }}>
+                        {r.type === "daily_report_excuse" ? "عذر تقرير يومي" : "غياب مجلس تسميع"} · {r.relevantDate}
+                        {r.group?.name ? ` · ${r.group.name}` : ""}
+                      </p>
+                      <p style={{ margin: 0 }}>{r.reason}</p>
+                      {r.hasAttachment && (
+                        <a
+                          href={`${typeof window !== "undefined" ? "" : ""}${process.env.NEXT_PUBLIC_API_URL || "/api"}${r.attachmentUrl}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ fontSize: "0.9rem" }}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            if (!token || !r.attachmentUrl) return;
+                            const base = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "");
+                            const res = await fetch(`${base}${r.attachmentUrl}`, {
+                              headers: { Authorization: `Bearer ${token}` },
+                            });
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            window.open(url, "_blank");
+                          }}
+                        >
+                          📎 فتح المرفق
+                        </a>
+                      )}
+                      {r.reviewerNote && (
+                        <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.88rem" }}>
+                          ملاحظة: {r.reviewerNote}
+                        </p>
+                      )}
+                    </div>
+                    <span className="status-chip">{r.status}</span>
+                  </div>
+                  {r.status === "pending" && (
+                    <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        style={{ boxShadow: "none" }}
+                        onClick={async () => {
+                          await api(`/student-requests/${r.id}/review`, token, {
+                            method: "PATCH",
+                            body: JSON.stringify({
+                              approve: true,
+                              reviewerNote: reviewNote || undefined,
+                            }),
+                          });
+                          setReviewNote("");
+                          await refresh();
+                        }}
+                      >
+                        قبول
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        onClick={async () => {
+                          await api(`/student-requests/${r.id}/review`, token, {
+                            method: "PATCH",
+                            body: JSON.stringify({
+                              approve: false,
+                              reviewerNote: reviewNote || undefined,
+                            }),
+                          });
+                          setReviewNote("");
+                          await refresh();
+                        }}
+                      >
+                        رفض
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </section>
         )}

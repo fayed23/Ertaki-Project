@@ -179,4 +179,82 @@ describe('Ertaki critical rules (e2e)', () => {
     expect([200, 201]).toContain(weekly.status);
     expect(weekly.body.studentId).toBe(studentId);
   });
+
+  it('student request: daily excuse approve marks day excused', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/student-requests')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .field('type', 'daily_report_excuse')
+      .field('relevantDate', '2099-03-10')
+      .field('reason', 'مرض يمنع إرسال التقرير');
+    expect([200, 201]).toContain(created.status);
+    expect(created.body.status).toBe('pending');
+    expect(created.body.type).toBe('daily_report_excuse');
+    const id = created.body.id as string;
+
+    const peerDenied = peerToken
+      ? await request(app.getHttpServer())
+          .get(`/api/student-requests/${id}`)
+          .set('Authorization', `Bearer ${peerToken}`)
+      : { status: 403 };
+    expect(peerDenied.status).toBeGreaterThanOrEqual(400);
+
+    const approved = await request(app.getHttpServer())
+      .patch(`/api/student-requests/${id}/review`)
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ approve: true, reviewerNote: 'عذر مقبول' });
+    expect(approved.status).toBe(200);
+    expect(approved.body.status).toBe('approved');
+
+    const reports = await request(app.getHttpServer())
+      .get('/api/daily-reports?reportDate=2099-03-10')
+      .set('Authorization', `Bearer ${studentToken}`);
+    expect(reports.status).toBe(200);
+    const day = (reports.body as Array<{ reportDate: string; status: string }>).find(
+      (r) => r.reportDate === '2099-03-10',
+    );
+    expect(day?.status).toBe('excused');
+  });
+
+  it('student request: weekly absence approve sets attendance excused', async () => {
+    const membership = await request(app.getHttpServer())
+      .get('/api/memberships/me')
+      .set('Authorization', `Bearer ${studentToken}`);
+    expect(membership.status).toBeLessThan(400);
+    const groupId = membership.body?.group?.id as string;
+    expect(groupId).toBeTruthy();
+
+    const created = await request(app.getHttpServer())
+      .post('/api/student-requests')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({
+        type: 'weekly_session_absence',
+        relevantDate: '2099-03-15',
+        reason: 'موعد طبي',
+        groupId,
+      });
+    expect([200, 201]).toContain(created.status);
+
+    const approved = await request(app.getHttpServer())
+      .patch(`/api/student-requests/${created.body.id}/review`)
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ approve: true });
+    expect(approved.status).toBe(200);
+
+    const att = await request(app.getHttpServer())
+      .get(`/api/attendance?groupId=${groupId}&sessionDate=2099-03-15`)
+      .set('Authorization', `Bearer ${teacherToken}`);
+    expect(att.status).toBe(200);
+    const row = (
+      att.body as Array<{ studentId: string; status: string; excuseRequestId?: string }>
+    ).find((a) => a.studentId === studentId);
+    expect(row?.status).toBe('excused');
+    expect(row?.excuseRequestId).toBe(created.body.id);
+
+    const stats = await request(app.getHttpServer())
+      .get('/api/student-requests/stats')
+      .set('Authorization', `Bearer ${supervisorToken}`);
+    expect(stats.status).toBe(200);
+    expect(stats.body.total).toBeGreaterThanOrEqual(1);
+  });
 });

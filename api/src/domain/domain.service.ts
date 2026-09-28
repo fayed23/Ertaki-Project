@@ -7,9 +7,14 @@ import { AttendanceService } from './attendance.service';
 import { PoliciesService } from './policies.service';
 import { NotificationsService } from './notifications.service';
 import { DashboardsService } from './dashboards.service';
+import {
+  StudentRequestsService,
+  StudentRequestFilters,
+} from './student-requests.service';
 import { NoteVisibility } from '../common/enums';
 import { AttendanceStatus } from '../common/enums';
 import { InfractionAction, InfractionType } from '../common/enums';
+import { StudentRequestType } from '../common/enums';
 
 /**
  * Facade over split domain services — keeps ReminderService and legacy call sites stable.
@@ -23,6 +28,7 @@ export class DomainService {
     private readonly policies: PoliciesService,
     private readonly notifications: NotificationsService,
     private readonly dashboards: DashboardsService,
+    private readonly studentRequests: StudentRequestsService,
   ) {}
 
   registerDeviceToken(actor: User, token: string, platform?: string) {
@@ -190,6 +196,40 @@ export class DomainService {
   }
   listExcuses(actor: User) {
     return this.attendance.listExcuses(actor);
+  }
+  createStudentRequest(
+    actor: User,
+    body: {
+      type: StudentRequestType;
+      relevantDate: string;
+      reason: string;
+      groupId?: string;
+    },
+    file?: Express.Multer.File,
+  ) {
+    return this.studentRequests.create(actor, body, file);
+  }
+  listStudentRequests(actor: User, filters?: StudentRequestFilters) {
+    return this.studentRequests.list(actor, filters);
+  }
+  studentRequestStats(actor: User) {
+    return this.studentRequests.stats(actor);
+  }
+  getStudentRequest(actor: User, id: string) {
+    return this.studentRequests.getOne(actor, id);
+  }
+  cancelStudentRequest(actor: User, id: string) {
+    return this.studentRequests.cancel(actor, id);
+  }
+  reviewStudentRequest(
+    actor: User,
+    id: string,
+    body: { approve: boolean; reviewerNote?: string },
+  ) {
+    return this.studentRequests.review(actor, id, body);
+  }
+  openStudentRequestAttachment(actor: User, id: string) {
+    return this.studentRequests.openAttachment(actor, id);
   }
   addNote(
     actor: User,

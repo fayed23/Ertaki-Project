@@ -24,6 +24,7 @@ import { DailyReport } from '../entities/daily-report.entity';
 import { WeeklyReport } from '../entities/weekly-report.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { AbsenceExcuseRequest } from '../entities/absence-excuse-request.entity';
+import { StudentRequest } from '../entities/student-request.entity';
 import { StudentNote } from '../entities/student-note.entity';
 import { Infraction } from '../entities/infraction.entity';
 import { InfractionPolicy } from '../entities/infraction-policy.entity';
@@ -33,6 +34,8 @@ import { ProgramContent } from '../entities/program-content.entity';
 import { ReportDeadlineConfig } from '../entities/report-deadline-config.entity';
 import { AuditLog } from '../entities/audit-log.entity';
 import { DeviceToken } from '../entities/device-token.entity';
+import { StudentRequestsService } from './student-requests.service';
+import { StudentRequestsController } from './student-requests.controller';
 
 const entities = [
   User,
@@ -43,6 +46,7 @@ const entities = [
   WeeklyReport,
   Attendance,
   AbsenceExcuseRequest,
+  StudentRequest,
   StudentNote,
   Infraction,
   InfractionPolicy,
@@ -63,11 +67,13 @@ const entities = [
     PoliciesController,
     NotificationsController,
     DashboardsController,
+    StudentRequestsController,
   ],
   providers: [
     DomainContext,
     GroupsService,
     ReportsService,
+    StudentRequestsService,
     AttendanceService,
     PoliciesService,
     NotificationsService,
@@ -81,6 +87,7 @@ const entities = [
     GroupsService,
     ReportsService,
     AttendanceService,
+    StudentRequestsService,
     PoliciesService,
     NotificationsService,
     DashboardsService,

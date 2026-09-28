@@ -69,6 +69,23 @@ class ApiClient {
     return _decode(res);
   }
 
+  Future<Map<String, dynamic>> postMultipart(
+    String path,
+    Map<String, String> fields, {
+    String? filePath,
+    String fileField = 'attachment',
+  }) async {
+    final req = http.MultipartRequest('POST', Uri.parse('$_base$path'));
+    if (token != null) req.headers['Authorization'] = 'Bearer $token';
+    req.fields.addAll(fields);
+    if (filePath != null && filePath.isNotEmpty) {
+      req.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+    }
+    final streamed = await req.send();
+    final res = await http.Response.fromStream(streamed);
+    return _decode(res) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> patch(String path, Map<String, dynamic> body) async {
     final res = await http.patch(
       Uri.parse('$_base$path'),

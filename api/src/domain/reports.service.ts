@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { IsNull } from 'typeorm';
-import { UserRole, AttendanceStatus } from '../common/enums';
+import { UserRole, AttendanceStatus, DailyReportStatus } from '../common/enums';
 import { User } from '../entities/user.entity';
 import { WeeklyReport } from '../entities/weekly-report.entity';
 import { DailyReport } from '../entities/daily-report.entity';
@@ -40,30 +40,35 @@ export class ReportsService {
     const existing = await this.ctx.dailyReports.findOne({
       where: { studentId: actor.id, reportDate: input.reportDate },
     });
-    if (existing) {
+    if (existing && existing.status !== DailyReportStatus.EXCUSED) {
       throw new BadRequestException('لا يمكن تعديل التقرير بعد الإرسال');
     }
     const range = this.ctx.validateQalunMemorizationRange(input);
+    const payload = {
+      student: actor,
+      studentId: actor.id,
+      reportDate: input.reportDate,
+      status: DailyReportStatus.SUBMITTED,
+      excuseRequestId: existing?.excuseRequestId ?? null,
+      memorizedQuota: input.memorizedQuota,
+      memorizationFrom: input.memorizationFrom ?? null,
+      memorizationTo: input.memorizationTo ?? null,
+      memorizationSurahNumber: range?.surahNumber ?? null,
+      memorizationSurahName: range?.surahName ?? null,
+      memorizationAyahFrom: range?.ayahFrom ?? null,
+      memorizationAyahTo: range?.ayahTo ?? null,
+      reviewPortion: input.reviewPortion ?? null,
+      reviewFrom: input.reviewFrom ?? null,
+      reviewTo: input.reviewTo ?? null,
+      completedFiftyRepetitions: input.completedFiftyRepetitions,
+      repeatedInOneSitting: input.repeatedInOneSitting,
+      readTafsir: input.readTafsir,
+      submittedAt: new Date(),
+    };
     const report = await this.ctx.dailyReports.save(
-      this.ctx.dailyReports.create({
-        student: actor,
-        studentId: actor.id,
-        reportDate: input.reportDate,
-        memorizedQuota: input.memorizedQuota,
-        memorizationFrom: input.memorizationFrom ?? null,
-        memorizationTo: input.memorizationTo ?? null,
-        memorizationSurahNumber: range?.surahNumber ?? null,
-        memorizationSurahName: range?.surahName ?? null,
-        memorizationAyahFrom: range?.ayahFrom ?? null,
-        memorizationAyahTo: range?.ayahTo ?? null,
-        reviewPortion: input.reviewPortion ?? null,
-        reviewFrom: input.reviewFrom ?? null,
-        reviewTo: input.reviewTo ?? null,
-        completedFiftyRepetitions: input.completedFiftyRepetitions,
-        repeatedInOneSitting: input.repeatedInOneSitting,
-        readTafsir: input.readTafsir,
-        submittedAt: new Date(),
-      }),
+      existing
+        ? Object.assign(existing, payload)
+        : this.ctx.dailyReports.create(payload),
     );
     await this.ctx.evaluateContentInfractions(actor.id, report);
     await this.ctx.auditLog(
@@ -238,6 +243,9 @@ export class ReportsService {
         missedReview++;
         continue;
       }
+      if (r.status === DailyReportStatus.EXCUSED) {
+        continue;
+      }
       if (!r.memorizedQuota) missedQuota++;
       if (!r.completedFiftyRepetitions) missedFiftyReps++;
       if (!r.repeatedInOneSitting) missedSingleSitting++;
@@ -259,7 +267,9 @@ export class ReportsService {
       groupId,
       weekStartDate,
       weekEndDate,
-      dailyReportsSubmitted: dailies.length,
+      dailyReportsSubmitted: dailies.filter(
+        (d) => d.status !== DailyReportStatus.EXCUSED,
+      ).length,
       quotaDaysMet: dailies.filter((d) => d.memorizedQuota).length,
       fiftyRepsDaysMet: dailies.filter((d) => d.completedFiftyRepetitions)
         .length,

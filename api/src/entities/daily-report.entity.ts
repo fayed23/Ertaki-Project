@@ -6,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
+import { DailyReportStatus } from '../common/enums';
 import { timestampColumnType } from '../common/column-types';
 import { User } from './user.entity';
 
@@ -24,18 +25,21 @@ export class DailyReport {
   @Column({ type: 'date' })
   reportDate: string;
 
+  @Column({ type: 'varchar', default: DailyReportStatus.SUBMITTED })
+  status: DailyReportStatus;
+
+  @Column({ type: 'varchar', nullable: true })
+  excuseRequestId: string | null;
+
   @Column({ default: false })
   memorizedQuota: boolean;
 
-  /** HH:mm start of memorization session */
   @Column({ type: 'varchar', nullable: true })
   memorizationFrom: string | null;
 
-  /** HH:mm end of memorization session */
   @Column({ type: 'varchar', nullable: true })
   memorizationTo: string | null;
 
-  /** Qalūn surah number 1–114 */
   @Column({ type: 'int', nullable: true })
   memorizationSurahNumber: number | null;
 

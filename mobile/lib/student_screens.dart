@@ -4,6 +4,7 @@ import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/notify.dart';
 import 'package:ertaki_mobile/clock_time.dart';
 import 'package:ertaki_mobile/quran_qalun.dart';
+import 'package:ertaki_mobile/student_requests.dart';
 import 'package:ertaki_mobile/surah_ayah_picker.dart';
 import 'package:ertaki_mobile/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -145,19 +146,11 @@ class StudentGroup extends StatefulWidget {
 class _StudentGroupState extends State<StudentGroup> {
   Map<String, dynamic>? membership;
   bool loading = true;
-  final excuseCtrl = TextEditingController();
-  bool sendingExcuse = false;
 
   @override
   void initState() {
     super.initState();
     _load();
-  }
-
-  @override
-  void dispose() {
-    excuseCtrl.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -172,26 +165,6 @@ class _StudentGroupState extends State<StudentGroup> {
       if (mounted) showToast(context, e.toString(), error: true);
     }
   }
-
-  Future<void> _sendExcuse() async {
-    final group = membership?['group'] as Map<String, dynamic>?;
-    if (group == null || excuseCtrl.text.trim().isEmpty) return;
-    setState(() => sendingExcuse = true);
-    try {
-      await widget.api.post('/excuse-requests', {
-        'groupId': group['id'],
-        'sessionDate': todayIso(),
-        'reason': excuseCtrl.text.trim(),
-      });
-      excuseCtrl.clear();
-      if (mounted) showToast(context, 'تم إرسال طلب العذر للمعلم والمشرف');
-    } catch (e) {
-      if (mounted) showToast(context, e.toString(), error: true);
-    } finally {
-      if (mounted) setState(() => sendingExcuse = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
@@ -251,22 +224,30 @@ class _StudentGroupState extends State<StudentGroup> {
           ),
         ),
         const SizedBox(height: 14),
-        const SectionTitle('طلب عذر غياب'),
         SoftPanel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
-                controller: excuseCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'سبب العذر (مجلس اليوم)',
-                ),
+              Text('الأعذار والغياب', style: ui(weight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(
+                'عذر تقرير يومي أو غياب مجلس التسميع مع مرفق اختياري',
+                style: ui(color: Brand.muted, size: 13),
               ),
               const SizedBox(height: 12),
-              FilledButton(
-                onPressed: sendingExcuse ? null : _sendExcuse,
-                child: Text(sendingExcuse ? 'جاري الإرسال…' : 'إرسال العذر'),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => StudentRequestsPage(
+                        api: widget.api,
+                        groupId: '${group['id']}',
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.assignment_outlined),
+                label: const Text('فتح الطلبات والأعذار'),
               ),
             ],
           ),

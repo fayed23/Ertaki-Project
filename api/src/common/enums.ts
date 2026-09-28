@@ -47,6 +47,21 @@ export enum ExcuseRequestStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
   REJECTED = 'rejected',
+  CANCELLED = 'cancelled',
+}
+
+/** Alias for the reusable student request workflow. */
+export type StudentRequestStatus = ExcuseRequestStatus;
+export const StudentRequestStatus = ExcuseRequestStatus;
+
+export enum StudentRequestType {
+  DAILY_REPORT_EXCUSE = 'daily_report_excuse',
+  WEEKLY_SESSION_ABSENCE = 'weekly_session_absence',
+}
+
+export enum DailyReportStatus {
+  SUBMITTED = 'submitted',
+  EXCUSED = 'excused',
 }
 
 export enum InfractionType {

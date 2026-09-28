@@ -280,7 +280,7 @@ docker compose logs api --tail 50
 ## 8) Install the app on your phone
 
 1. On the PC, download the APK from the GitHub Release:  
-   [v1.0.15-apk](https://github.com/fayed23/Ertaki-Project/releases/tag/v1.0.15-apk)  
+   [v1.0.16-apk](https://github.com/fayed23/Ertaki-Project/releases/tag/v1.0.16-apk)  
    File name: `ertaki-android-release.apk`
 2. Copy it to the phone (USB, Google Drive, WhatsApp to yourself, etc.).
 3. On the phone: open the file → Allow install from this source if asked → Install.

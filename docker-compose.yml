@@ -49,6 +49,9 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      UPLOAD_DIR: /app/uploads/student-requests
+    volumes:
+      - ertaki_uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -110,6 +113,7 @@ services:
 
 volumes:
   ertaki_pg:
+  ertaki_uploads:
   caddy_data:
   caddy_config:
 

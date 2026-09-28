@@ -15,6 +15,7 @@ import {
   UserRole,
   UserStatus,
   InfractionAction,
+  DailyReportStatus,
 } from '../common/enums';
 import { User } from '../entities/user.entity';
 import { Group } from '../entities/group.entity';
@@ -24,6 +25,7 @@ import { DailyReport } from '../entities/daily-report.entity';
 import { WeeklyReport } from '../entities/weekly-report.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { AbsenceExcuseRequest } from '../entities/absence-excuse-request.entity';
+import { StudentRequest } from '../entities/student-request.entity';
 import { StudentNote } from '../entities/student-note.entity';
 import { Infraction } from '../entities/infraction.entity';
 import { InfractionPolicy } from '../entities/infraction-policy.entity';
@@ -52,6 +54,8 @@ export class DomainContext {
     readonly attendance: Repository<Attendance>,
     @InjectRepository(AbsenceExcuseRequest)
     readonly excuses: Repository<AbsenceExcuseRequest>,
+    @InjectRepository(StudentRequest)
+    readonly studentRequests: Repository<StudentRequest>,
     @InjectRepository(StudentNote)
     readonly notes: Repository<StudentNote>,
     @InjectRepository(Infraction)
@@ -329,6 +333,8 @@ export class DomainContext {
       id: report.id,
       studentId: report.studentId,
       reportDate: report.reportDate,
+      status: report.status,
+      excuseRequestId: report.excuseRequestId,
       memorizedQuota: report.memorizedQuota,
       memorizationFrom: report.memorizationFrom,
       memorizationTo: report.memorizationTo,
@@ -354,6 +360,7 @@ export class DomainContext {
   }
 
   async evaluateContentInfractions(studentId: string, report: DailyReport) {
+    if (report.status === DailyReportStatus.EXCUSED) return;
     const quota = await this.quotas.findOne({ where: { studentId } });
     if (!report.memorizedQuota) {
       await this.recordInfraction(

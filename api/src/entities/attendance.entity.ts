@@ -46,6 +46,9 @@ export class Attendance {
   @Column({ type: 'text', nullable: true })
   note: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  excuseRequestId: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

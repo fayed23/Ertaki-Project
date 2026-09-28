@@ -4,6 +4,7 @@ import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/groups_catalog.dart';
 import 'package:ertaki_mobile/hub_menu.dart';
 import 'package:ertaki_mobile/report_detail.dart';
+import 'package:ertaki_mobile/student_requests.dart';
 import 'package:ertaki_mobile/widgets.dart';
 
 class TeacherHome extends StatefulWidget {
@@ -155,6 +156,12 @@ class _TeacherHomeState extends State<TeacherHome> with RouteAware {
             subtitle: 'قبول أو رفض',
             badgeCount: pendingJoins,
             onTap: () => _open(TeacherJoinsPage(api: widget.api)),
+          ),
+          HubCategory(
+            icon: Icons.assignment_late_outlined,
+            label: 'طلبات الأعذار',
+            subtitle: 'مراجعة وقبول/رفض',
+            onTap: () => _open(StaffRequestsPage(api: widget.api)),
           ),
           HubCategory(
             icon: Icons.event_available_outlined,

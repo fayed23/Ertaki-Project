@@ -3,6 +3,7 @@ import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/groups_catalog.dart';
 import 'package:ertaki_mobile/report_detail.dart';
+import 'package:ertaki_mobile/student_requests.dart';
 import 'package:ertaki_mobile/supervisor_screens.dart';
 import 'package:ertaki_mobile/teacher_screens.dart';
 import 'package:ertaki_mobile/widgets.dart';
@@ -130,9 +131,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
         page = TeacherGroupsPage(api: widget.api);
       }
     } else if (type == 'excuse_submitted' ||
+        type == 'excuse_reviewed' ||
         type == 'attendance_recorded' ||
         type == 'absence_recorded') {
-      if (widget.role == 'teacher') {
+      if (type == 'excuse_reviewed' && widget.role == 'student') {
+        page = StudentRequestsPage(api: widget.api);
+      } else if (type == 'excuse_submitted' || type == 'excuse_reviewed') {
+        page = StaffRequestsPage(api: widget.api);
+      } else if (widget.role == 'teacher') {
         page = TeacherAttendance(api: widget.api);
       }
     }
@@ -160,6 +166,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
       case 'group_updated':
         return 'اضغط لفتح المجموعة';
       case 'excuse_submitted':
+        return 'اضغط لمراجعة طلب العذر';
+      case 'excuse_reviewed':
+        return 'اضغط لعرض نتيجة الطلب';
       case 'attendance_recorded':
       case 'absence_recorded':
         return 'اضغط لفتح الحضور';

@@ -79,6 +79,34 @@ export type DeadlineConfig = {
   notes?: string | null;
 };
 
+export type StudentRequest = {
+  id: string;
+  type: string;
+  relevantDate: string;
+  reason: string;
+  status: string;
+  hasAttachment?: boolean;
+  attachmentUrl?: string | null;
+  reviewerNote?: string | null;
+  reviewedAt?: string | null;
+  student?: User;
+  group?: { id: string; name: string };
+  teacherId?: string | null;
+  createdAt?: string;
+};
+
+export type StudentRequestStats = {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  cancelled: number;
+  byType: Record<string, number>;
+  byGroup: Record<string, number>;
+  byTeacher: Record<string, number>;
+  byStudent: Record<string, number>;
+};
+
 export type AdminTab =
   | "dash"
   | "accounts"

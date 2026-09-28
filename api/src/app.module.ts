@@ -10,6 +10,7 @@ import { SeedModule } from './seed/seed.module';
 import { HealthModule } from './health/health.module';
 import { StructuredLoggingInterceptor } from './common/structured-logging.interceptor';
 import { InitialSchema1730000000000 } from './migrations/1730000000000-InitialSchema';
+import { StudentRequests1740000000000 } from './migrations/1740000000000-StudentRequests';
 
 const useSqlite =
   (process.env.DB_TYPE || 'sqlite').toLowerCase() !== 'postgres';
@@ -18,6 +19,7 @@ const isProd = (process.env.NODE_ENV || '').toLowerCase() === 'production';
 const syncSqlite = useSqlite && !isProd;
 const syncPostgres =
   !useSqlite && !isProd && process.env.TYPEORM_SYNC === 'true';
+const migrations = [InitialSchema1730000000000, StudentRequests1740000000000];
 
 @Module({
   imports: [
@@ -37,7 +39,7 @@ const syncPostgres =
             database: process.env.SQLITE_PATH || 'ertaki.dev.sqlite',
             entities,
             synchronize: syncSqlite,
-            migrations: [InitialSchema1730000000000],
+            migrations,
             migrationsRun: false,
           }
         : {
@@ -47,7 +49,7 @@ const syncPostgres =
               'postgres://ertaki:ertaki@localhost:5432/ertaki',
             entities,
             synchronize: syncPostgres,
-            migrations: [InitialSchema1730000000000],
+            migrations,
             migrationsRun: false,
           },
     ),

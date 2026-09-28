@@ -1,7 +1,7 @@
 name: ertaki_mobile
 description: ارتق — تطبيق متابعة حفظ القرآن
 publish_to: "none"
-version: 1.0.15+15
+version: 1.0.16+16
 
 environment:
   sdk: ^3.6.2
@@ -20,6 +20,7 @@ dependencies:
   google_fonts: ^6.3.0
   flutter_local_notifications: ^19.5.0
   timezone: ^0.10.1
+  file_picker: ^8.1.7
 
 dev_dependencies:
   flutter_test:

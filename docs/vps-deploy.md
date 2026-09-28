@@ -757,6 +757,7 @@ GitHub Actions: API lint/build/e2e, admin build, Flutter analyze + tests.
 ## Related docs
 
 - Home LAN practice (before buying): [`lan-home-pilot.md`](./lan-home-pilot.md)
+- Student requests & excuses: [`student-requests.md`](./student-requests.md)
 - Gap analysis: [`structure-gap-analysis.md`](./structure-gap-analysis.md)
 - Ship review: [`p0-p2-ship-review.md`](./p0-p2-ship-review.md)
 - Product map: [`../workflow.md`](../workflow.md)
