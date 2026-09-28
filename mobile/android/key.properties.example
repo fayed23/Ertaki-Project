@@ -1,0 +1,13 @@
+# Optional Play/App Store signing (not committed).
+# Copy to mobile/android/key.properties and fill paths/passwords locally.
+#
+# storePassword=...
+# keyPassword=...
+# keyAlias=ertaki
+# storeFile=/absolute/path/to/ertaki-upload.jks
+#
+# Without this file, `flutter build apk --release` stays debug-signed for sideload pilots.
+storePassword=
+keyPassword=
+keyAlias=ertaki
+storeFile=upload-keystore.jks

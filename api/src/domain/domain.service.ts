@@ -365,6 +365,14 @@ export class DomainService {
         { groupId: group.id },
       );
     }
+    await this.auditLog(
+      actor.id,
+      'group.review_creation',
+      'group',
+      group.id,
+      { status: GroupStatus.PENDING_APPROVAL },
+      { status: group.status, reviewNote: reviewNote ?? null },
+    );
     return this.enrichGroup(group);
   }
 
@@ -1389,6 +1397,12 @@ export class DomainService {
     if (input.id) {
       const existing = await this.policies.findOne({ where: { id: input.id } });
       if (!existing) throw new NotFoundException();
+      const before = {
+        infractionType: existing.infractionType,
+        thresholdCount: existing.thresholdCount,
+        action: existing.action,
+        enabled: existing.enabled,
+      };
       Object.assign(existing, {
         infractionType: input.infractionType,
         thresholdCount: input.thresholdCount,
@@ -1396,9 +1410,23 @@ export class DomainService {
         actionLabel: input.actionLabel ?? existing.actionLabel,
         enabled: input.enabled ?? existing.enabled,
       });
-      return this.policies.save(existing);
+      const saved = await this.policies.save(existing);
+      await this.auditLog(
+        actor.id,
+        'policy.upsert',
+        'infraction_policy',
+        saved.id,
+        before,
+        {
+          infractionType: saved.infractionType,
+          thresholdCount: saved.thresholdCount,
+          action: saved.action,
+          enabled: saved.enabled,
+        },
+      );
+      return saved;
     }
-    return this.policies.save(
+    const created = await this.policies.save(
       this.policies.create({
         infractionType: input.infractionType,
         thresholdCount: input.thresholdCount,
@@ -1407,6 +1435,20 @@ export class DomainService {
         enabled: input.enabled ?? true,
       }),
     );
+    await this.auditLog(
+      actor.id,
+      'policy.upsert',
+      'infraction_policy',
+      created.id,
+      null,
+      {
+        infractionType: created.infractionType,
+        thresholdCount: created.thresholdCount,
+        action: created.action,
+        enabled: created.enabled,
+      },
+    );
+    return created;
   }
 
   async setQuota(
@@ -1429,7 +1471,13 @@ export class DomainService {
       quota.requiredRepetitions = requiredRepetitions;
       quota.setById = actor.id;
     }
-    return this.quotas.save(quota);
+    const saved = await this.quotas.save(quota);
+    await this.auditLog(actor.id, 'quota.set', 'student_quota', saved.id, null, {
+      studentId,
+      dailyQuotaDescription: saved.dailyQuotaDescription,
+      requiredRepetitions: saved.requiredRepetitions,
+    });
+    return saved;
   }
 
   getQuota(actor: User, studentId?: string) {
@@ -1579,6 +1627,7 @@ export class DomainService {
     if (!row || row.status !== ExcuseRequestStatus.PENDING) {
       throw new BadRequestException('الطلب غير صالح');
     }
+    const before = { status: row.status };
     row.status = approve
       ? ExcuseRequestStatus.APPROVED
       : ExcuseRequestStatus.REJECTED;
@@ -1593,6 +1642,14 @@ export class DomainService {
         note: row.reason,
       });
     }
+    await this.auditLog(
+      actor.id,
+      'excuse.review',
+      'absence_excuse_request',
+      row.id,
+      before,
+      { status: row.status, approve },
+    );
     return row;
   }
 
@@ -1626,6 +1683,11 @@ export class DomainService {
         noteDate: input.noteDate,
       }),
     );
+    await this.auditLog(actor.id, 'note.create', 'student_note', note.id, null, {
+      studentId: note.studentId,
+      visibility: note.visibility,
+      noteDate: note.noteDate,
+    });
     if (input.visibility === NoteVisibility.STUDENT_VISIBLE) {
       await this.notify(
         input.studentId,
@@ -2138,6 +2200,9 @@ export class DomainService {
   ) {
     this.requireSupervisor(actor);
     let row = await this.content.findOne({ where: { key: input.key } });
+    const before = row
+      ? { title: row.title, body: row.body, videoUrl: row.videoUrl }
+      : null;
     if (!row) {
       row = this.content.create(input);
     } else {
@@ -2147,7 +2212,16 @@ export class DomainService {
         videoUrl: input.videoUrl ?? row.videoUrl,
       });
     }
-    return this.content.save(row);
+    const saved = await this.content.save(row);
+    await this.auditLog(
+      actor.id,
+      'program_content.upsert',
+      'program_content',
+      saved.id,
+      before,
+      { key: saved.key, title: saved.title },
+    );
+    return saved;
   }
 
   getDeadlineConfig() {
@@ -2186,7 +2260,21 @@ export class DomainService {
       });
     }
     // Reminders fire when enabled; missing-by-deadline auto-infractions stay off.
-    return this.deadlines.save(row);
+    const saved = await this.deadlines.save(row);
+    await this.auditLog(
+      actor.id,
+      'deadline.upsert',
+      'report_deadline_config',
+      saved.id,
+      null,
+      {
+        enabled: saved.enabled,
+        timezone: saved.timezone,
+        closeTimeLocal: saved.closeTimeLocal,
+        reminderMinutesBefore: saved.reminderMinutesBefore,
+      },
+    );
+    return saved;
   }
 
   myNotifications(actor: User) {

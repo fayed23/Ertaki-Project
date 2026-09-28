@@ -1,0 +1,31 @@
+# Staging twin — same images, separate project name / volumes / secrets.
+# Usage:
+#   cp .env.example .env.staging
+#   # edit JWT_SECRET, POSTGRES_PASSWORD, DOMAIN=api-staging.example.com
+#   docker compose -f docker-compose.yml -f docker-compose.staging.yml --env-file .env.staging -p ertaki-staging up -d --build
+
+services:
+  postgres:
+    volumes:
+      - ertaki_pg_staging:/var/lib/postgresql/data
+      - ./deploy/backups/staging:/backups
+
+  api:
+    environment:
+      NODE_ENV: staging
+      SEED_ON_EMPTY: ${SEED_ON_EMPTY:-true}
+
+  admin:
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://staging.example.com/api}
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://staging.example.com/api}
+
+  caddy:
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+
+volumes:
+  ertaki_pg_staging:

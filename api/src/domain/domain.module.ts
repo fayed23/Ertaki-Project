@@ -1,9 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DomainController } from './domain.controller';
 import { DomainService } from './domain.service';
 import { PushService } from './push.service';
 import { ReminderService } from './reminder.service';
+import { GroupsController } from './groups.controller';
+import { ReportsController } from './reports.controller';
+import { AttendanceController } from './attendance.controller';
+import { PoliciesController } from './policies.controller';
+import { NotificationsController } from './notifications.controller';
+import { DashboardsController } from './dashboards.controller';
 import { User } from '../entities/user.entity';
 import { Group } from '../entities/group.entity';
 import { GroupMembership } from '../entities/group-membership.entity';
@@ -44,7 +49,14 @@ const entities = [
 
 @Module({
   imports: [TypeOrmModule.forFeature(entities)],
-  controllers: [DomainController],
+  controllers: [
+    GroupsController,
+    ReportsController,
+    AttendanceController,
+    PoliciesController,
+    NotificationsController,
+    DashboardsController,
+  ],
   providers: [DomainService, PushService, ReminderService],
   exports: [DomainService, PushService, TypeOrmModule],
 })

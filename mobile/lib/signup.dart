@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/shell.dart';
+import 'package:ertaki_mobile/token_store.dart';
 import 'package:ertaki_mobile/widgets.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -51,8 +51,7 @@ class _SignupPageState extends State<SignupPage> {
       });
       final token = res['accessToken'] as String?;
       if (token != null && role == 'student') {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', token);
+        await TokenStore.write(token);
         if (!mounted) return;
         showToast(context, res['message'] as String? ?? 'تم إنشاء الحساب');
         Navigator.of(context).pushAndRemoveUntil(

@@ -8,14 +8,25 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 
+function jwtSecret() {
+  const fromEnv = process.env.JWT_SECRET;
+  if (fromEnv) return fromEnv;
+  if ((process.env.NODE_ENV || '').toLowerCase() === 'production') {
+    return '';
+  }
+  return 'ertaki-dev-secret-change-me';
+}
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
     DomainModule,
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'ertaki-dev-secret-change-me',
-      signOptions: { expiresIn: '7d' },
+    JwtModule.registerAsync({
+      useFactory: () => ({
+        secret: jwtSecret(),
+        signOptions: { expiresIn: '7d' },
+      }),
     }),
   ],
   controllers: [AuthController],

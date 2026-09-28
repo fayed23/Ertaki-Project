@@ -1,14 +1,110 @@
+# Production-oriented stack: postgres + api + admin + caddy.
+# Local SQLite path remains: `cd api && npm run start:dev` (no compose required).
+#
+# Usage:
+#   cp .env.example .env   # set strong JWT_SECRET + POSTGRES_PASSWORD
+#   docker compose up -d --build
+#
+# Nest is NOT published on the host in this file — only Caddy (:80/:443).
+
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: ertaki
-      POSTGRES_PASSWORD: ertaki
-      POSTGRES_DB: ertaki
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-ertaki}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-ertaki}
     volumes:
       - ertaki_pg:/var/lib/postgresql/data
+      - ./deploy/backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ertaki} -d ${POSTGRES_DB:-ertaki}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ertaki
+
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: "43124"
+      DB_TYPE: postgres
+      DATABASE_URL: postgres://${POSTGRES_USER:-ertaki}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ertaki}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      TYPEORM_SYNC: "false"
+      RUN_MIGRATIONS: "true"
+      SEED_ON_EMPTY: ${SEED_ON_EMPTY:-true}
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:43124/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+    networks:
+      - ertaki
+    # No host ports — reach via Caddy only.
+
+  admin:
+    build:
+      context: ./admin
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:43123/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - ertaki
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      admin:
+        condition: service_healthy
+    networks:
+      - ertaki
+
+  # Optional: Postgres-only for local Nest without Dockerizing the API.
+  # Use: docker compose --profile db-only up -d postgres
+  # and run Nest on the host with DB_TYPE=postgres DATABASE_URL=...
 
 volumes:
   ertaki_pg:
+  caddy_data:
+  caddy_config:
+
+networks:
+  ertaki:
+    driver: bridge

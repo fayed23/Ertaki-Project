@@ -1,193 +1,20 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-  "http://127.0.0.1:43124/api";
-
-type User = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  role: string;
-  status: string;
-};
-
-type Dashboard = {
-  today: string;
-  students: number;
-  teachers: number;
-  groups: number;
-  pendingJoins: number;
-  pendingAccounts: number;
-  activeStudents: number;
-  openInfractions: number;
-};
-
-
-type JoinRequest = {
-  id: string;
-  status: string;
-  student: User;
-  group: { id: string; name: string };
-  reviewNote?: string | null;
-};
-
-type PendingAccount = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  role: string;
-  status: string;
-  city?: string | null;
-  accountReviewNote?: string | null;
-  createdAt?: string;
-};
-
-type Policy = {
-  id: string;
-  infractionType: string;
-  thresholdCount: number;
-  action: string;
-  actionLabel?: string | null;
-  enabled: boolean;
-};
-
-type Group = {
-  id: string;
-  name: string;
-  whatsappUrl?: string | null;
-  currentStudentCount: number;
-  seatCount: number;
-  status: string;
-  weeklySessionDay: string;
-  weeklySessionTime: string;
-  sessionStartTime?: string | null;
-  sessionEndTime?: string | null;
-  teacherName?: string | null;
-  gender?: string;
-  description?: string | null;
-  teacher?: User;
-};
-
-
-type Directory = {
-  students: User[];
-  teachers: User[];
-  groups: Group[];
-};
-
-async function api<T>(
-  path: string,
-  token: string | null,
-  init?: RequestInit,
-): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers || {}),
-    },
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || res.statusText);
-  }
-  return res.json() as Promise<T>;
-}
-
-const TIME_STEP = 5;
-const DAY_MIN = 24 * 60 - TIME_STEP;
-
-function clampMin(m: number) {
-  const snapped = Math.round(m / TIME_STEP) * TIME_STEP;
-  return Math.max(0, Math.min(DAY_MIN, snapped));
-}
-
-function parseHhMm(raw: string | null | undefined, fallback = 0) {
-  if (!raw) return clampMin(fallback);
-  const [h, m] = raw.split(":").map((x) => parseInt(x, 10));
-  if (Number.isNaN(h) || Number.isNaN(m)) return clampMin(fallback);
-  return clampMin(h * 60 + m);
-}
-
-function formatHhMm(minutes: number) {
-  const m = clampMin(minutes);
-  const h = Math.floor(m / 60);
-  const min = m % 60;
-  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
-}
-
-function ClockTimeField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (hhmm: string) => void;
-}) {
-  return (
-    <div style={{ display: "grid", gap: "0.35rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center" }}>
-        <span style={{ fontWeight: 600 }}>{label}</span>
-        <input
-          type="time"
-          value={value}
-          onChange={(e) => onChange(e.target.value || "23:59")}
-          aria-label={label}
-          dir="ltr"
-          style={{
-            fontSize: "1.1rem",
-            fontWeight: 700,
-            color: "var(--forest)",
-            padding: "0.45rem 0.65rem",
-            borderRadius: 10,
-            border: "1px solid var(--line)",
-            background: "var(--paper)",
-          }}
-        />
-      </div>
-      <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.78rem" }}>
-        اختيار بساعة النظام (مثل إنشاء المجموعة في التطبيق)
-      </p>
-    </div>
-  );
-}
-
-
-type DeadlineConfig = {
-  id?: string;
-  enabled: boolean;
-  timezone: string;
-  closeTimeLocal: string;
-  reminderMinutesBefore?: number;
-  notes?: string | null;
-};
-
-const STATUS_AR: Record<string, string> = {
-  pending: "قيد المراجعة",
-  pending_approval: "بانتظار التفعيل",
-  accepted: "مقبول",
-  rejected: "مرفوض",
-  cancelled: "ملغى",
-  open: "مفتوحة",
-  full: "مكتملة",
-  closed: "مغلقة",
-  paused: "متوقفة",
-  student: "طالب",
-  teacher: "معلم",
-};
-
-function groupStatusLabel(status: string) {
-  if (status === "pending_approval") return "بانتظار الموافقة";
-  return STATUS_AR[status] || status;
-}
+import { api } from "@/lib/api";
+import type {
+  Dashboard,
+  DeadlineConfig,
+  Directory,
+  Group,
+  JoinRequest,
+  PendingAccount,
+  Policy,
+  User,
+} from "@/lib/types";
+import { formatHhMm, parseHhMm } from "@/lib/time";
+import { STATUS_AR, groupStatusLabel } from "@/lib/status";
+import { ClockTimeField } from "@/components/ClockTimeField";
 
 export default function AdminHome() {
   const [token, setToken] = useState<string | null>(null);

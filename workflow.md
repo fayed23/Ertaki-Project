@@ -9,13 +9,16 @@ Living product map of what exists today.
 
 ## Stack & delivery
 
-- Monorepo: **Flutter** mobile (Android + iOS + web) · **NestJS** API · **Next.js** supervisor admin · **SQLite** (dev) / **PostgreSQL** (prod-ready)
-- Self-host path: no SaaS seat limits; JWT + bcrypt auth
+- Monorepo: **Flutter** mobile (Android + iOS + web) · **NestJS** API · **Next.js** supervisor admin · **SQLite** (dev) / **PostgreSQL** (prod)
+- **VPS Docker:** `docker compose up` → postgres + api + admin + **Caddy** (Nest not public); runbook `docs/vps-deploy.md`
+- Schema: SQLite+`synchronize` local · Postgres+**TypeORM migrations** in prod (`RUN_MIGRATIONS`)
+- Ops: `GET /api/health`, Compose healthchecks, `deploy/scripts/backup-postgres.sh`, structured JSON HTTP logs, GitHub Actions CI
+- Self-host path: no SaaS seat limits; JWT + bcrypt auth; rate-limited login/join; strong secrets required in production
 - Try Live ports (cloud): API `43124`, admin `43123`, Flutter web `43125`
 - Public GitHub: https://github.com/fayed23/Ertaki-Project
-- Sideload Android **release APK** (debug-signed): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.10-apk`
-- Configurable API base: `--dart-define=API_BASE_URL=...` + in-app field on login (persisted); cleartext HTTP allowed for LAN testing
-- Docs: `requirements.md`, `docs/decisions.md` (store), `docs/ertaki-portable-production-guide.md`, root `README.md`
+- Sideload Android **release APK** (debug-signed, **lan** flavor): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.14-apk` (1.0.14+14)
+- Configurable API base: `--dart-define=API_BASE_URL=...` + in-app field; tokens in **secure storage**; `lan`/`prod` Android flavors
+- Docs: `requirements.md`, `docs/decisions.md`, `docs/ertaki-portable-production-guide.md`, `docs/vps-deploy.md`, `docs/structure-gap-analysis.md`, root `README.md`
 
 ---
 

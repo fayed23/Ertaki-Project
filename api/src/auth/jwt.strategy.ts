@@ -7,6 +7,15 @@ import { User } from '../entities/user.entity';
 
 export type JwtPayload = { sub: string; role: string };
 
+function jwtSecret() {
+  const fromEnv = process.env.JWT_SECRET;
+  if (fromEnv) return fromEnv;
+  if ((process.env.NODE_ENV || '').toLowerCase() === 'production') {
+    return 'missing-jwt-secret';
+  }
+  return 'ertaki-dev-secret-change-me';
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -15,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'ertaki-dev-secret-change-me',
+      secretOrKey: jwtSecret(),
     });
   }
 

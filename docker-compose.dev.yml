@@ -1,0 +1,22 @@
+# Local Postgres only (Nest + admin stay on the host).
+# docker compose -f docker-compose.dev.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ertaki
+      POSTGRES_PASSWORD: ertaki
+      POSTGRES_DB: ertaki
+    ports:
+      - "5432:5432"
+    volumes:
+      - ertaki_pg_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ertaki -d ertaki"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  ertaki_pg_dev:

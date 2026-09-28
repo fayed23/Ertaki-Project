@@ -3,9 +3,9 @@ import 'package:ertaki_mobile/api.dart';
 import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/shell.dart';
 import 'package:ertaki_mobile/signup.dart';
+import 'package:ertaki_mobile/token_store.dart';
 import 'package:ertaki_mobile/widgets.dart';
 import 'package:ertaki_mobile/notify.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class GatePage extends StatefulWidget {
   const GatePage({super.key});
@@ -54,8 +54,7 @@ class _GatePageState extends State<GatePage> {
         'password': passCtrl.text,
       });
       final token = res['accessToken'] as String;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', token);
+      await TokenStore.write(token);
       final authed = ApiClient(token);
       await NotifyHub.instance.registerDevice(authed);
       await NotifyHub.instance.pollAndAlert(authed);

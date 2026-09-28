@@ -38,6 +38,10 @@ export class SeedService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    if (process.env.SEED_ON_EMPTY === 'false') {
+      this.logger.log('SEED_ON_EMPTY=false — تخطي البذر');
+      return;
+    }
     const count = await this.users.count();
     if (count > 0) {
       this.logger.log('قاعدة البيانات تحتوي بيانات — تخطي البذر');

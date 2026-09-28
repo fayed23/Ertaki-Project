@@ -11,8 +11,8 @@ import 'package:ertaki_mobile/notifications_inbox.dart';
 import 'package:ertaki_mobile/student_screens.dart';
 import 'package:ertaki_mobile/supervisor_screens.dart';
 import 'package:ertaki_mobile/teacher_screens.dart';
+import 'package:ertaki_mobile/token_store.dart';
 import 'package:ertaki_mobile/widgets.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.token});
@@ -110,8 +110,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
+    await TokenStore.clear();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const GatePage()),

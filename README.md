@@ -128,15 +128,16 @@ flutter run -d chrome --web-hostname=0.0.0.0 --web-port=43125 --dart-define=API_
 # Windows desktop (if Flutter Windows desktop enabled)
 flutter run -d windows --dart-define=API_BASE_URL=http://127.0.0.1:43124/api
 
-# Release APK
-flutter build apk --release --dart-define=API_BASE_URL=http://10.0.2.2:43124/api
+# Release APK (lan flavor — cleartext for pilots)
+flutter build apk --release --flavor lan --dart-define=API_BASE_URL=http://10.0.2.2:43124/api
+# HTTPS / store-oriented: --flavor prod --dart-define=API_BASE_URL=https://api.example.com/api
 ```
 
 Demo query params on Flutter web: `?phone=0500000003&auto=1` (student) or `?phone=0500000002&auto=1` (teacher).
 
 ### How to install APK on phone
 
-1. Download [`releases/ertaki-android-release.apk`](./releases/ertaki-android-release.apk) from this repo, or the GitHub Release **[v1.0.10-apk](https://github.com/fayed23/Ertaki-Project/releases/tag/v1.0.10-apk)** asset.
+1. Download [`releases/ertaki-android-release.apk`](./releases/ertaki-android-release.apk) from this repo, or the GitHub Release **[v1.0.14-apk](https://github.com/fayed23/Ertaki-Project/releases/tag/v1.0.14-apk)** asset.
 2. On Android: **Settings → Security / Apps → Install unknown apps** (or **Allow from this source**) for Chrome/Files.
 3. Open the APK and install.
 4. Start the API on your PC (same Wi‑Fi) or use a public URL.
@@ -154,16 +155,33 @@ Seed logins (password `password123`):
 
 ---
 
-## Optional PostgreSQL
+## Optional PostgreSQL (host Nest)
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.dev.yml up -d
 cd api
 export DB_TYPE=postgres
 export DATABASE_URL=postgres://ertaki:ertaki@localhost:5432/ertaki
-export TYPEORM_SYNC=true
+export TYPEORM_SYNC=true   # local experiments only — prod uses migrations
 npm run start:dev
 ```
+
+---
+
+## VPS (Docker — production)
+
+Full stack: **Postgres + API + Admin + Caddy** (TLS). Nest is internal-only; clients hit Caddy.
+
+```bash
+cp .env.example .env
+# set strong JWT_SECRET + POSTGRES_PASSWORD + DOMAIN + NEXT_PUBLIC_API_URL
+
+docker compose up -d --build
+curl -fsS https://$DOMAIN/api/health
+```
+
+Runbook: [`docs/vps-deploy.md`](./docs/vps-deploy.md)  
+Staging overlay: `docker-compose.staging.yml` · backups: `deploy/scripts/backup-postgres.sh`
 
 ---
 
@@ -203,13 +221,15 @@ Set `FCM_SERVER_KEY` on the API for real device push. Without it, alerts are sto
 ## Repo layout
 
 ```
-api/               NestJS API
-admin/             Next.js supervisor UI (RTL)
-mobile/            Flutter (Android + iOS + web)
+api/               NestJS API (+ Dockerfile, migrations)
+admin/             Next.js supervisor UI (RTL, + Dockerfile)
+mobile/            Flutter (Android + iOS + web; lan/prod flavors)
+deploy/            Caddyfile, backup/restore scripts
 releases/          Sideload Android APK(s)
-docs/              Production / rebuild curriculum
+docs/              Production / rebuild curriculum + vps-deploy.md
+.github/workflows  CI (api/admin/mobile)
 requirements.md    Full Arabic product requirements
-docker-compose.yml Optional Postgres
+docker-compose.yml Production stack (postgres+api+admin+caddy)
 README.md          This file
 ```
 

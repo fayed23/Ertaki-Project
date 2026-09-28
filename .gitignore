@@ -9,6 +9,9 @@ dist
 coverage
 .env
 .env.local
+.env.staging
+deploy/backups/*.sql.gz
+
 mobile/.dart_tool
 mobile/build
 mobile/.flutter-plugins-dependencies
