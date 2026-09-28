@@ -174,7 +174,14 @@ Same stack as production, on your PC. Phone APK + PC on the same Wi‑Fi.
 
 Plain-language steps (Windows): [`docs/lan-home-pilot.md`](./docs/lan-home-pilot.md)
 
-Phone API URL becomes `http://YOUR-PC-IP/api` (port **80** via Caddy — not `:43124`).
+```bash
+docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build
+curl http://127.0.0.1/api/health
+# if port 80 is blocked on Windows:
+curl http://127.0.0.1:8080/api/health
+```
+
+Phone API URL becomes `http://YOUR-PC-IP/api` (or `:8080/api`). Use the LAN overlay — plain production Compose only answers the exact `DOMAIN` Host header.
 
 ## VPS (Docker — production)
 

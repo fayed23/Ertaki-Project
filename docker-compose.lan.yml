@@ -1,0 +1,19 @@
+# Home Wi‑Fi / Docker Desktop pilot overlay.
+# Usage (from project root):
+#   docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build
+#
+# - Caddyfile.lan listens on :80 for ANY Host (localhost, 127.0.0.1, LAN IP)
+# - Publishes 80 and fallback 8080 (Windows often blocks or reserves port 80)
+# - auto_https off so private IPs never fight Let's Encrypt
+
+services:
+  caddy:
+    ports:
+      - "80:80"
+      - "8080:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile.lan:/etc/caddy/Caddyfile:ro
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-practice@example.com}

@@ -1,0 +1,20 @@
+# Home / LAN pilot: answer ANY Host on plain HTTP :80.
+# Use with: docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build
+# Do NOT use this on a public VPS (no HTTPS).
+
+{
+	# Never try Let's Encrypt on a home LAN.
+	auto_https off
+}
+
+:80 {
+	encode gzip
+
+	handle /api* {
+		reverse_proxy api:43124
+	}
+
+	handle {
+		reverse_proxy admin:43123
+	}
+}

@@ -135,36 +135,47 @@ If the phone cannot connect later, temporarily allow inbound **TCP port 80** on 
 cd C:\Ertaki-Project
 ```
 
-3. Start everything (first time downloads images — can take several minutes):
+3. Start with the **LAN overlay** (important on Windows / home Wi‑Fi).  
+   This makes Caddy answer **any** address (`localhost`, `127.0.0.1`, and your LAN IP) on plain HTTP, and also opens port **8080** if Windows blocks 80:
 
 ```bat
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build
 ```
+
+Do **not** use plain `docker compose up` for this home test. That production Caddyfile only answers the exact `DOMAIN` name and may fight HTTPS certificates.
 
 4. Wait until it finishes without red errors.
 5. Check that containers are up:
 
 ```bat
-docker compose ps
+docker compose -f docker-compose.yml -f docker-compose.lan.yml ps
 ```
 
 You want `postgres`, `api`, `admin`, and `caddy` looking **running** / healthy.
 
-6. Test from the PC browser. Open:
+6. Test from the **same PC** browser. Try these **in order**:
 
 ```text
+http://127.0.0.1/api/health
+http://localhost/api/health
+http://127.0.0.1:8080/api/health
 http://YOUR-PC-IP/api/health
+http://YOUR-PC-IP:8080/api/health
 ```
 
 You should see something like: `{"status":"ok","db":"up"}`.
 
-Also open the admin site:
+Admin site (same host/port that worked above):
 
 ```text
+http://127.0.0.1/
+http://127.0.0.1:8080/
 http://YOUR-PC-IP/
 ```
 
 You should see the **ارتق** supervisor login page.
+
+**If nothing opens:** jump to [Common problems](#common-problems) — especially “Containers healthy but browser cannot connect”.
 
 ---
 
@@ -201,10 +212,16 @@ docker compose logs api --tail 50
 The APK’s built-in default is for an emulator (`10.0.2.2`). Your real phone needs your **PC Wi‑Fi IP**.
 
 1. On the login screen, find the **API base URL** field (shown on first login / settings).
-2. Set it exactly to:
+2. Set it exactly to whichever URL worked in the PC browser:
 
 ```text
 http://YOUR-PC-IP/api
+```
+
+If only port **8080** worked on the PC:
+
+```text
+http://YOUR-PC-IP:8080/api
 ```
 
 Example:
@@ -230,11 +247,12 @@ Teacher demo: `0500000002` / `password123`.
 ## 10) Quick “did it work?” checklist
 
 - [ ] Docker Desktop is running  
-- [ ] `docker compose ps` shows 4 services up  
-- [ ] PC browser: `http://YOUR-PC-IP/api/health` → ok  
-- [ ] PC browser: `http://YOUR-PC-IP/` → admin login works  
+- [ ] Started with `docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build`  
+- [ ] `docker compose … ps` shows 4 services up  
+- [ ] PC browser: `http://127.0.0.1/api/health` **or** `http://127.0.0.1:8080/api/health` → ok  
+- [ ] PC browser: admin login works on the same host/port  
 - [ ] Phone Wi‑Fi = same as PC  
-- [ ] Phone API URL = `http://YOUR-PC-IP/api`  
+- [ ] Phone API URL = `http://YOUR-PC-IP/api` (or `:8080/api` if that is what worked)  
 - [ ] Student/teacher can log in on the phone  
 
 ---
@@ -245,46 +263,119 @@ Stop (keeps your data):
 
 ```bat
 cd C:\Ertaki-Project
-docker compose stop
+docker compose -f docker-compose.yml -f docker-compose.lan.yml stop
 ```
 
 Start again later:
 
 ```bat
 cd C:\Ertaki-Project
-docker compose start
+docker compose -f docker-compose.yml -f docker-compose.lan.yml start
 ```
 
 Full reset (deletes the practice database — careful):
 
 ```bat
-docker compose down -v
+docker compose -f docker-compose.yml -f docker-compose.lan.yml down -v
 ```
 
 ---
 
 ## Common problems
 
-### Phone says network / connection error
+### Containers healthy but browser cannot connect (localhost / IP / phone)
 
-1. PC and phone on same Wi‑Fi?  
-2. API URL on phone is `http://YOUR-PC-IP/api` (not `localhost`, not `127.0.0.1`)?  
-3. PC IP changed (router reboot)? Run `ipconfig` again and update `.env` + phone URL, then:
+This is the most common Windows + Docker Desktop failure. Containers can be healthy **inside** Docker while your browser still cannot reach them.
+
+Do these checks **on the PC that runs Docker**, in order.
+
+#### A) Restart with the LAN overlay
 
 ```bat
-docker compose up -d --build
+cd C:\Ertaki-Project
+docker compose -f docker-compose.yml -f docker-compose.lan.yml down
+docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build
 ```
 
-4. Windows Firewall blocking port 80?
+#### B) Ask Windows which process owns port 80
+
+```bat
+netstat -ano | findstr :80
+```
+
+If something other than Docker / `com.docker` owns `:80`, that program is stealing the door. Common thieves: **IIS**, **World Wide Web Publishing Service**, **Skype**, another local web server.
+
+Stop IIS (if present):
+
+```bat
+net stop w3svc
+```
+
+Or switch to port **8080** (already published by the LAN overlay):
+
+```text
+http://127.0.0.1:8080/api/health
+```
+
+#### C) Curl from Command Prompt (more honest than the browser)
+
+```bat
+curl http://127.0.0.1/api/health
+curl http://127.0.0.1:8080/api/health
+```
+
+- If curl works but the browser does not: try another browser, or clear HSTS / do not force `https://`.
+- If curl fails on both: Caddy is not reachable on the host yet — continue.
+
+#### D) Read Caddy logs
+
+```bat
+docker compose -f docker-compose.yml -f docker-compose.lan.yml logs caddy --tail 100
+```
+
+You want reverse-proxy activity, not endless certificate / ACME errors. The LAN overlay turns `auto_https` **off** on purpose.
+
+#### E) Confirm published ports
+
+```bat
+docker compose -f docker-compose.yml -f docker-compose.lan.yml ps
+```
+
+Under PORTS for `caddy` you should see something like `0.0.0.0:80->80` and `0.0.0.0:8080->80`.
+
+#### F) Windows Firewall (needed for phone / other PC)
+
+1. Windows search → **Windows Defender Firewall** → **Advanced settings**.
+2. **Inbound Rules** → **New Rule** → Port → TCP → `80, 8080` → Allow → Private → name it `Ertaki LAN`.
+3. Keep the network profile **Private** (not Public guest Wi‑Fi).
+
+#### G) Same Wi‑Fi rules
+
+- Phone and PC must share the same SSID.
+- Avoid **Guest** Wi‑Fi / client isolation (AP/client isolation blocks phone→PC).
+- Prefer `http://YOUR-PC-IP/...` on other devices — never `localhost` (that means “this phone itself”).
+
+#### H) Docker Desktop reset (last resort)
+
+Docker Desktop → **Troubleshoot** → **Restart Docker Desktop**. Then repeat step A.
+
+### Phone says network / connection error
+
+1. First prove `http://YOUR-PC-IP/api/health` (or `:8080`) works in the **phone’s own browser**. If the phone browser fails, the app will fail too.
+2. API URL on phone must match what worked (`http://YOUR-PC-IP/api` or `http://YOUR-PC-IP:8080/api`).
+3. PC IP changed after router reboot? Run `ipconfig` again and update `.env` + phone URL, then recreate with the LAN compose command above.
+4. Windows Firewall — see step F.
 
 ### Admin page loads but login fails
 
-- Confirm seeding: in `.env`, `SEED_ON_EMPTY=true` and `ALLOW_DEMO_SEED=true`, then rebuild:
+- Confirm seeding: in `.env`, `SEED_ON_EMPTY=true` and `ALLOW_DEMO_SEED=true`, then:
 
 ```bat
-docker compose down
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.lan.yml down
+docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build
 ```
+
+- `NEXT_PUBLIC_API_URL` and `CORS_ORIGINS` must use the same host/port you open in the browser (include `:8080` if you use that port).
 
 ### `docker compose` command not found
 
@@ -292,7 +383,18 @@ docker compose up -d --build
 
 ### Port 80 already in use
 
-Something else (IIS, Skype, another web server) is using port 80. Stop that program, or ask for help changing Caddy’s published ports.
+Use the LAN overlay’s **8080** URLs everywhere (browser, `.env` `NEXT_PUBLIC_API_URL` / `CORS_ORIGINS`, phone API field), e.g.:
+
+```env
+NEXT_PUBLIC_API_URL=http://192.168.1.23:8080/api
+CORS_ORIGINS=http://192.168.1.23:8080,http://localhost:8080,http://127.0.0.1:8080
+```
+
+Then recreate:
+
+```bat
+docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build
+```
 
 ---
 

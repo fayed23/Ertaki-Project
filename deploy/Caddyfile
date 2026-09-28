@@ -1,3 +1,4 @@
+# Public VPS / real domain. For home Wi‑Fi use Caddyfile.lan via docker-compose.lan.yml.
 {
 	email {$ACME_EMAIL}
 }
