@@ -16,7 +16,7 @@ Living product map of what exists today.
 - Self-host path: no SaaS seat limits; JWT + bcrypt auth; rate-limited login/join; strong secrets required in production
 - Try Live ports (cloud): API `43124`, admin `43123`, Flutter web `43125`
 - Public GitHub: https://github.com/fayed23/Ertaki-Project
-- Sideload Android **release APK** (debug-signed, **lan** flavor): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.15-apk` (1.0.15+15)
+- Sideload Android **release APK** (debug-signed, **lan** flavor): `releases/ertaki-android-release.apk` + GitHub Release `v1.0.17-apk` (1.0.17+17)
 - Configurable API base: `--dart-define=API_BASE_URL=...` + in-app field; tokens via **flutter_secure_storage**; `lan`/`prod` Android flavors
 - Docs: `requirements.md`, `docs/decisions.md`, `docs/ertaki-portable-production-guide.md`, `docs/vps-deploy.md`, `docs/structure-gap-analysis.md`, root `README.md`
 
@@ -105,6 +105,20 @@ Living product map of what exists today.
 
 ---
 
+## Memorization progress (خطة الحفظ)
+
+- Post-join **setup**: Qalūn start surah + āyah + pace (`half_page` / `one_page`); confirm new + sequential; visible to student / teacher / supervisor
+- **Edit plan** (student if allowed, teacher, admin) with audit (prev/new/who/when/reason); history never auto-deleted
+- **Pace change** does not reset completions or achievements
+- **Starting-point change after progress**: warn + `plan_only` (A) or `plan_and_reset` (B)
+- **Reset**: separate destructive confirm; supervisor/admin only; archives active progress then re-inits; medals/hizb history preserved
+- **10-hizb cycle** progress bar; assessments; certificates on pass; multiple cycles
+- Normalized tables: plan · progress · history · hizb · achievements · assessments · certificates · plan_changes · resets
+- Flutter: student تقدّمي + teacher ملف الطالب; Admin tab **الحفظ** (`/memorization`)
+- Docs: `docs/memorization-progress.md`
+
+---
+
 ## Infractions (تقصير)
 
 - Types from content/attendance (missed quota, missed 50, unexcused absence, …)
@@ -130,7 +144,7 @@ Living product map of what exists today.
 - **Student:** first-run groups catalog (locked shell) → home CTA report; notes; progress + weekly confirm
 - **Teacher:** category hub home (مجموعات، طلبة، طلبات، حضور، تقارير، إنشاء، إشعارات); students **nested inside** each group card (not sibling top-level cards); light brand Atmosphere on all category pages (no black voids); group brief/detailed + WhatsApp; weekly PDF-format reports; attendance weekly copy
 - **Supervisor Flutter:** category hub (تفعيل، انضمام، مجموعات، دليل، إشعارات); **no** daily/weekly report screens
-- **Supervisor admin (Next):** تفعيل معلمين · joins · groups (approve) · directory · policies — **no** «تقارير اليوم» / weekly tabs
+- **Supervisor admin (Next):** تفعيل معلمين · joins · الأعذار · groups (approve) · directory · **الحفظ** · policies — **no** «تقارير اليوم» / weekly tabs
 - **System Back:** nested navigators + PopScope — pops in-app routes first; non-home tab → home; home → confirm exit
 - **Swipe:** horizontal PageView between bottom-nav destinations for all roles, synced with NavigationBar
 - Hub category tiles show **unread/new count badges** (hidden when 0): joins, reports missing today, group approvals, notifications — counts **auto-refresh** when returning to the hub (route pop), switching back to الرئيسية, re-tapping home, or app resume (no full page reload)

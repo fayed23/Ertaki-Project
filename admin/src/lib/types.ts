@@ -113,4 +113,31 @@ export type AdminTab =
   | "joins"
   | "groups"
   | "directory"
-  | "policies";
+  | "policies"
+  | "requests"
+  | "memorization";
+
+export type MemorizationSnapshot = {
+  needsSetup: boolean;
+  plan: {
+    startSurahName: string;
+    startAyah: number;
+    paceLabel?: string;
+    pace?: string;
+  } | null;
+  progress: {
+    cycleNumber: number;
+    currentSurahName: string;
+    currentAyah: number;
+  } | null;
+  cycle: {
+    number: number;
+    completedHizbs: number;
+    targetHizbs: number;
+    percent: number;
+    readyForAssessment?: boolean;
+  };
+  achievements: Array<{ id: string; title: string }>;
+  certificates: Array<{ id: string; title: string; serialCode: string; cycleNumber: number }>;
+  permissions?: { canReset?: boolean };
+};

@@ -11,6 +11,7 @@ import {
   StudentRequestsService,
   StudentRequestFilters,
 } from './student-requests.service';
+import { MemorizationService } from './memorization.service';
 import { NoteVisibility } from '../common/enums';
 import { AttendanceStatus } from '../common/enums';
 import { InfractionAction, InfractionType } from '../common/enums';
@@ -29,6 +30,7 @@ export class DomainService {
     private readonly notifications: NotificationsService,
     private readonly dashboards: DashboardsService,
     private readonly studentRequests: StudentRequestsService,
+    private readonly memorization: MemorizationService,
   ) {}
 
   registerDeviceToken(actor: User, token: string, platform?: string) {
@@ -230,6 +232,45 @@ export class DomainService {
   }
   openStudentRequestAttachment(actor: User, id: string) {
     return this.studentRequests.openAttachment(actor, id);
+  }
+  getMemorizationSnapshot(actor: User, studentId?: string) {
+    return this.memorization.getSnapshot(actor, studentId);
+  }
+  setupMemorization(
+    actor: User,
+    body: Parameters<MemorizationService['setup']>[1],
+  ) {
+    return this.memorization.setup(actor, body);
+  }
+  editMemorizationPlan(
+    actor: User,
+    body: Parameters<MemorizationService['editPlan']>[1],
+  ) {
+    return this.memorization.editPlan(actor, body);
+  }
+  resetMemorizationProgress(
+    actor: User,
+    body: Parameters<MemorizationService['resetProgress']>[1],
+  ) {
+    return this.memorization.resetProgress(actor, body);
+  }
+  completeMemorizationHizb(
+    actor: User,
+    body: Parameters<MemorizationService['completeHizb']>[1],
+  ) {
+    return this.memorization.completeHizb(actor, body);
+  }
+  upsertMemorizationAssessment(
+    actor: User,
+    body: Parameters<MemorizationService['upsertAssessment']>[1],
+  ) {
+    return this.memorization.upsertAssessment(actor, body);
+  }
+  issueMemorizationCertificate(
+    actor: User,
+    body: Parameters<MemorizationService['issueCertificate']>[1],
+  ) {
+    return this.memorization.issueCertificate(actor, body);
   }
   addNote(
     actor: User,

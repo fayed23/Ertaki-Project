@@ -85,3 +85,29 @@ export enum NoteVisibility {
   INTERNAL = 'internal',
   STUDENT_VISIBLE = 'student_visible',
 }
+
+export enum MemorizationPace {
+  HALF_PAGE = 'half_page',
+  ONE_PAGE = 'one_page',
+}
+
+export enum MemorizationAssessmentStatus {
+  PENDING = 'pending',
+  SCHEDULED = 'scheduled',
+  PASSED = 'passed',
+  FAILED = 'failed',
+  RETAKE = 'retake',
+}
+
+export enum MemorizationAchievementType {
+  HIZB_MEDAL = 'hizb_medal',
+  CYCLE_COMPLETE = 'cycle_complete',
+  CERTIFICATE = 'certificate',
+}
+
+export enum MemorizationPlanChangeKind {
+  SETUP = 'setup',
+  PACE = 'pace',
+  STARTING_POINT = 'starting_point',
+  FULL = 'full',
+}

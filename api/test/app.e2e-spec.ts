@@ -257,4 +257,72 @@ describe('Ertaki critical rules (e2e)', () => {
     expect(stats.status).toBe(200);
     expect(stats.body.total).toBeGreaterThanOrEqual(1);
   });
+
+  it('memorization: setup, pace edit, hizb, reset preserves achievements', async () => {
+    const before = await request(app.getHttpServer())
+      .get('/api/memorization')
+      .set('Authorization', `Bearer ${studentToken}`);
+    expect(before.status).toBe(200);
+    expect(before.body.needsSetup).toBe(true);
+
+    const setup = await request(app.getHttpServer())
+      .post('/api/memorization/setup')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({
+        startSurahNumber: 1,
+        startAyah: 1,
+        pace: 'half_page',
+        confirmNew: true,
+        confirmSequential: true,
+      });
+    expect([200, 201]).toContain(setup.status);
+    expect(setup.body.needsSetup).toBe(false);
+    expect(setup.body.plan.pace).toBe('half_page');
+    expect(setup.body.progress.currentSurahNumber).toBe(1);
+
+    const pace = await request(app.getHttpServer())
+      .patch('/api/memorization/plan')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({ pace: 'one_page', reason: 'تسريع الوتيرة' });
+    expect(pace.status).toBe(200);
+    expect(pace.body.plan.pace).toBe('one_page');
+    expect(pace.body.hizbCompletions).toEqual([]);
+
+    const hizb = await request(app.getHttpServer())
+      .post('/api/memorization/hizb-completions')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ studentId, hizbNumber: 3 });
+    expect([200, 201]).toContain(hizb.status);
+    expect(hizb.body.cycle.completedHizbs).toBe(1);
+    expect(hizb.body.achievements.length).toBeGreaterThanOrEqual(1);
+
+    const dup = await request(app.getHttpServer())
+      .post('/api/memorization/hizb-completions')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ studentId, hizbNumber: 3 });
+    expect(dup.status).toBeGreaterThanOrEqual(400);
+
+    const teacherDeniedReset = await request(app.getHttpServer())
+      .post('/api/memorization/reset')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ studentId, reason: 'تجربة', confirm: true });
+    expect(teacherDeniedReset.status).toBeGreaterThanOrEqual(400);
+
+    const reset = await request(app.getHttpServer())
+      .post('/api/memorization/reset')
+      .set('Authorization', `Bearer ${supervisorToken}`)
+      .send({ studentId, reason: 'إعادة ضبط اختبار', confirm: true });
+    expect([200, 201]).toContain(reset.status);
+    expect(reset.body.progress.currentSurahNumber).toBe(1);
+    expect(reset.body.progress.currentAyah).toBe(1);
+    expect(reset.body.achievements.length).toBeGreaterThanOrEqual(1);
+    expect(reset.body.hizbCompletions.length).toBe(1);
+    expect(reset.body.resets.length).toBeGreaterThanOrEqual(1);
+
+    const staffView = await request(app.getHttpServer())
+      .get(`/api/memorization?studentId=${studentId}`)
+      .set('Authorization', `Bearer ${supervisorToken}`);
+    expect(staffView.status).toBe(200);
+    expect(staffView.body.plan).toBeTruthy();
+  });
 });

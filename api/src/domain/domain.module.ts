@@ -36,6 +36,17 @@ import { AuditLog } from '../entities/audit-log.entity';
 import { DeviceToken } from '../entities/device-token.entity';
 import { StudentRequestsService } from './student-requests.service';
 import { StudentRequestsController } from './student-requests.controller';
+import { MemorizationService } from './memorization.service';
+import { MemorizationController } from './memorization.controller';
+import { MemorizationPlan } from '../entities/memorization-plan.entity';
+import { MemorizationProgress } from '../entities/memorization-progress.entity';
+import { MemorizationProgressHistory } from '../entities/memorization-progress-history.entity';
+import { MemorizationHizbCompletion } from '../entities/memorization-hizb-completion.entity';
+import { MemorizationAchievement } from '../entities/memorization-achievement.entity';
+import { MemorizationAssessment } from '../entities/memorization-assessment.entity';
+import { MemorizationCertificate } from '../entities/memorization-certificate.entity';
+import { MemorizationPlanChange } from '../entities/memorization-plan-change.entity';
+import { MemorizationReset } from '../entities/memorization-reset.entity';
 
 const entities = [
   User,
@@ -56,6 +67,15 @@ const entities = [
   ReportDeadlineConfig,
   AuditLog,
   DeviceToken,
+  MemorizationPlan,
+  MemorizationProgress,
+  MemorizationProgressHistory,
+  MemorizationHizbCompletion,
+  MemorizationAchievement,
+  MemorizationAssessment,
+  MemorizationCertificate,
+  MemorizationPlanChange,
+  MemorizationReset,
 ];
 
 @Module({
@@ -68,12 +88,14 @@ const entities = [
     NotificationsController,
     DashboardsController,
     StudentRequestsController,
+    MemorizationController,
   ],
   providers: [
     DomainContext,
     GroupsService,
     ReportsService,
     StudentRequestsService,
+    MemorizationService,
     AttendanceService,
     PoliciesService,
     NotificationsService,
@@ -88,6 +110,7 @@ const entities = [
     ReportsService,
     AttendanceService,
     StudentRequestsService,
+    MemorizationService,
     PoliciesService,
     NotificationsService,
     DashboardsService,

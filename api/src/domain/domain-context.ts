@@ -34,6 +34,15 @@ import { NotificationStub } from '../entities/notification-stub.entity';
 import { ProgramContent } from '../entities/program-content.entity';
 import { ReportDeadlineConfig } from '../entities/report-deadline-config.entity';
 import { AuditLog } from '../entities/audit-log.entity';
+import { MemorizationPlan } from '../entities/memorization-plan.entity';
+import { MemorizationProgress } from '../entities/memorization-progress.entity';
+import { MemorizationProgressHistory } from '../entities/memorization-progress-history.entity';
+import { MemorizationHizbCompletion } from '../entities/memorization-hizb-completion.entity';
+import { MemorizationAchievement } from '../entities/memorization-achievement.entity';
+import { MemorizationAssessment } from '../entities/memorization-assessment.entity';
+import { MemorizationCertificate } from '../entities/memorization-certificate.entity';
+import { MemorizationPlanChange } from '../entities/memorization-plan-change.entity';
+import { MemorizationReset } from '../entities/memorization-reset.entity';
 import { PushService } from './push.service';
 
 /** Shared repositories and domain helpers. */
@@ -72,6 +81,24 @@ export class DomainContext {
     readonly deadlines: Repository<ReportDeadlineConfig>,
     @InjectRepository(AuditLog)
     readonly audit: Repository<AuditLog>,
+    @InjectRepository(MemorizationPlan)
+    readonly memorizationPlans: Repository<MemorizationPlan>,
+    @InjectRepository(MemorizationProgress)
+    readonly memorizationProgress: Repository<MemorizationProgress>,
+    @InjectRepository(MemorizationProgressHistory)
+    readonly memorizationProgressHistory: Repository<MemorizationProgressHistory>,
+    @InjectRepository(MemorizationHizbCompletion)
+    readonly memorizationHizbCompletions: Repository<MemorizationHizbCompletion>,
+    @InjectRepository(MemorizationAchievement)
+    readonly memorizationAchievements: Repository<MemorizationAchievement>,
+    @InjectRepository(MemorizationAssessment)
+    readonly memorizationAssessments: Repository<MemorizationAssessment>,
+    @InjectRepository(MemorizationCertificate)
+    readonly memorizationCertificates: Repository<MemorizationCertificate>,
+    @InjectRepository(MemorizationPlanChange)
+    readonly memorizationPlanChanges: Repository<MemorizationPlanChange>,
+    @InjectRepository(MemorizationReset)
+    readonly memorizationResets: Repository<MemorizationReset>,
     readonly push: PushService,
   ) {}
 

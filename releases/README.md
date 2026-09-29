@@ -1,12 +1,8 @@
-# Android releases
+# Sideload APK
 
-| File | Notes |
-|---|---|
-| `ertaki-android-release.apk` | Flutter **release** build **1.0.16+16**, **lan** flavor, **debug-signed** for sideload (not Play Store) |
-| `ertaki-android-release.apk.sha1` | see file |
+- **File:** `ertaki-android-release.apk`
+- **Version:** 1.0.17+17 (lan flavor, debug-signed for sideload)
+- **SHA1:** `062760536c3f6148e6756eac938eb8222d03ef55`
+- **GitHub Release:** `v1.0.17-apk`
 
-**GitHub Release:** [v1.0.16-apk](https://github.com/fayed23/Ertaki-Project/releases/tag/v1.0.16-apk)
-
-**Flavors:** `lan` (cleartext HTTP for LAN pilots) · `prod` (HTTPS-oriented, cleartext disabled). Sideload APKs use **lan**.
-
-Includes student excuse/absence request UI (daily + weekly) with optional PDF/JPG/PNG attachments.
+Default API: `http://10.0.2.2:43124/api` (Android emulator → host). Change in-app or rebuild with `--dart-define=API_BASE_URL=...`.

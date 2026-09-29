@@ -14,12 +14,13 @@ import type {
   StudentRequest,
   StudentRequestStats,
   User,
+  MemorizationSnapshot,
 } from "@/lib/types";
 import { formatHhMm, parseHhMm } from "@/lib/time";
 import { STATUS_AR, groupStatusLabel } from "@/lib/status";
 import { ClockTimeField } from "@/components/ClockTimeField";
 
-export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "dash" | "accounts" | "joins" | "groups" | "directory" | "policies" | "requests" }) {
+export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "dash" | "accounts" | "joins" | "groups" | "directory" | "policies" | "requests" | "memorization" }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [phone, setPhone] = useState("0500000001");
@@ -37,9 +38,12 @@ export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "da
   const [requestFilter, setRequestFilter] = useState("pending");
   const [reviewNote, setReviewNote] = useState("");
   const [closeMinutes, setCloseMinutes] = useState(23 * 60 + 55);
+  const [memoStudentId, setMemoStudentId] = useState<string | null>(null);
+  const [memoSnap, setMemoSnap] = useState<MemorizationSnapshot | null>(null);
+  const [memoLoading, setMemoLoading] = useState(false);
   const router = useRouter();
   const [tab, setTab] = useState<
-    "dash" | "accounts" | "joins" | "groups" | "directory" | "policies" | "requests"
+    "dash" | "accounts" | "joins" | "groups" | "directory" | "policies" | "requests" | "memorization"
   >(initialTab);
 
   const authed = useMemo(() => !!token && !!user, [token, user]);
@@ -356,6 +360,7 @@ export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "da
               ["requests", `الأعذار${requestStats?.pending ? ` (${requestStats.pending})` : ""}`],
               ["groups", "المجموعات"],
               ["directory", "الدليل"],
+              ["memorization", "الحفظ"],
               ["policies", "سياسات التقصير"],
             ] as const
           ).map(([key, label]) => (
@@ -967,6 +972,115 @@ export default function AdminConsole({ initialTab = "dash" }: { initialTab?: "da
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === "memorization" && (
+          <section className="anim-rise-delay-2">
+            <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.25rem" }}>تقدّم الحفظ</h2>
+            <p style={{ margin: "0 0 0.85rem", color: "var(--muted)" }}>
+              خطط الطلبة · دورات 10 أحزاب · الشهادات · إعادة الضبط (مشرف فقط)
+            </p>
+            {!directory && <p style={{ color: "var(--muted)" }}>جاري التحميل…</p>}
+            {directory && (
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                {directory.students.map((s) => (
+                  <div key={s.id} className="panel" style={{ padding: "0.85rem 1rem" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <strong>{s.firstName} {s.lastName}</strong>
+                        <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{s.phone}</div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        onClick={async () => {
+                          if (!token) return;
+                          setMemoStudentId(s.id);
+                          setMemoLoading(true);
+                          setMemoSnap(null);
+                          try {
+                            const snap = await api<MemorizationSnapshot>(
+                              `/memorization?studentId=${s.id}`,
+                              token,
+                            );
+                            setMemoSnap(snap);
+                          } catch (e) {
+                            setError(e instanceof Error ? e.message : "فشل تحميل الحفظ");
+                          } finally {
+                            setMemoLoading(false);
+                          }
+                        }}
+                      >
+                        عرض الحفظ
+                      </button>
+                    </div>
+                    {memoStudentId === s.id && (
+                      <div style={{ marginTop: "0.85rem", borderTop: "1px solid var(--line)", paddingTop: "0.75rem" }}>
+                        {memoLoading && <p style={{ color: "var(--muted)" }}>جاري التحميل…</p>}
+                        {!memoLoading && memoSnap && (
+                          <>
+                            {memoSnap.needsSetup ? (
+                              <p style={{ margin: 0, color: "var(--muted)" }}>لم تُعدّ خطة الحفظ بعد</p>
+                            ) : (
+                              <>
+                                <p style={{ margin: "0 0 0.35rem" }}>
+                                  البداية: {memoSnap.plan?.startSurahName} آية {memoSnap.plan?.startAyah}
+                                  {" · "}
+                                  {memoSnap.plan?.paceLabel || memoSnap.plan?.pace}
+                                </p>
+                                <p style={{ margin: "0 0 0.35rem" }}>
+                                  دورة {memoSnap.cycle.number}: {memoSnap.cycle.completedHizbs}/{memoSnap.cycle.targetHizbs} أحزاب ({memoSnap.cycle.percent}%)
+                                </p>
+                                <p style={{ margin: "0 0 0.35rem", color: "var(--muted)", fontSize: "0.85rem" }}>
+                                  أوسمة: {memoSnap.achievements.length} · شهادات: {memoSnap.certificates.length}
+                                </p>
+                                {memoSnap.certificates.slice(0, 3).map((c) => (
+                                  <div key={c.id} style={{ fontSize: "0.85rem", color: "var(--forest-mid)" }}>
+                                    {c.title} · {c.serialCode}
+                                  </div>
+                                ))}
+                                <button
+                                  type="button"
+                                  className="btn-ghost"
+                                  style={{ marginTop: "0.65rem", color: "var(--danger)" }}
+                                  onClick={async () => {
+                                    if (!token) return;
+                                    const reason = window.prompt("سبب إعادة ضبط تقدّم الحفظ؟");
+                                    if (!reason?.trim()) return;
+                                    if (!window.confirm("تأكيد إعادة الضبط؟ الأوسمة تبقى.")) return;
+                                    try {
+                                      await api(`/memorization/reset`, token, {
+                                        method: "POST",
+                                        body: JSON.stringify({
+                                          studentId: s.id,
+                                          reason: reason.trim(),
+                                          confirm: true,
+                                        }),
+                                      });
+                                      toast("تمت إعادة الضبط");
+                                      const snap = await api<MemorizationSnapshot>(
+                                        `/memorization?studentId=${s.id}`,
+                                        token,
+                                      );
+                                      setMemoSnap(snap);
+                                    } catch (e) {
+                                      setError(e instanceof Error ? e.message : "فشل إعادة الضبط");
+                                    }
+                                  }}
+                                >
+                                  إعادة ضبط التقدّم
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </section>

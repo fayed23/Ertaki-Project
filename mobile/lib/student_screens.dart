@@ -4,6 +4,7 @@ import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/notify.dart';
 import 'package:ertaki_mobile/clock_time.dart';
 import 'package:ertaki_mobile/quran_qalun.dart';
+import 'package:ertaki_mobile/memorization_progress.dart';
 import 'package:ertaki_mobile/student_requests.dart';
 import 'package:ertaki_mobile/surah_ayah_picker.dart';
 import 'package:ertaki_mobile/widgets.dart';
@@ -641,6 +642,8 @@ class _StudentProgressState extends State<StudentProgress> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          MemorizationProgressSection(api: widget.api),
           const SizedBox(height: 12),
           const SectionTitle('تأكيد التقرير الأسبوعي'),
           if (pendingWeekly.isEmpty)

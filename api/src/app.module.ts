@@ -11,6 +11,7 @@ import { HealthModule } from './health/health.module';
 import { StructuredLoggingInterceptor } from './common/structured-logging.interceptor';
 import { InitialSchema1730000000000 } from './migrations/1730000000000-InitialSchema';
 import { StudentRequests1740000000000 } from './migrations/1740000000000-StudentRequests';
+import { MemorizationProgress1750000000000 } from './migrations/1750000000000-MemorizationProgress';
 
 const useSqlite =
   (process.env.DB_TYPE || 'sqlite').toLowerCase() !== 'postgres';
@@ -19,7 +20,11 @@ const isProd = (process.env.NODE_ENV || '').toLowerCase() === 'production';
 const syncSqlite = useSqlite && !isProd;
 const syncPostgres =
   !useSqlite && !isProd && process.env.TYPEORM_SYNC === 'true';
-const migrations = [InitialSchema1730000000000, StudentRequests1740000000000];
+const migrations = [
+  InitialSchema1730000000000,
+  StudentRequests1740000000000,
+  MemorizationProgress1750000000000,
+];
 
 @Module({
   imports: [

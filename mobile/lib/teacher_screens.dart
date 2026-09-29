@@ -4,6 +4,7 @@ import 'package:ertaki_mobile/brand.dart';
 import 'package:ertaki_mobile/groups_catalog.dart';
 import 'package:ertaki_mobile/hub_menu.dart';
 import 'package:ertaki_mobile/report_detail.dart';
+import 'package:ertaki_mobile/memorization_progress.dart';
 import 'package:ertaki_mobile/student_requests.dart';
 import 'package:ertaki_mobile/widgets.dart';
 
@@ -660,6 +661,12 @@ class _StudentFilePageState extends State<StudentFilePage> {
                         Text('تقارير: ${reports.length} · تقصير: ${infractions.length}', style: ui(color: Brand.muted)),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  MemorizationProgressSection(
+                    api: widget.api,
+                    studentId: widget.studentId,
+                    studentName: widget.studentName,
                   ),
                   const SizedBox(height: 12),
                   const SectionTitle('آخر التقارير'),
